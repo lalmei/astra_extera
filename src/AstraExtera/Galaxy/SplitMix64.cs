@@ -41,4 +41,31 @@ public struct SplitMix64
         var z = radius * Math.Cos(2.0 * Math.PI * u2);
         return mean + stdDev * z;
     }
+
+    /// <summary>
+    /// Knuth's product method for small means, Gaussian approximation once that would underflow.
+    /// </summary>
+    public int NextPoisson(double mean)
+    {
+        if (mean <= 0.0)
+        {
+            return 0;
+        }
+
+        if (mean > 30.0)
+        {
+            return Math.Max(0, (int)Math.Round(NextGaussian(mean, Math.Sqrt(mean))));
+        }
+
+        var limit = Math.Exp(-mean);
+        var product = NextUnit();
+        var count = 0;
+        while (product > limit)
+        {
+            count++;
+            product *= NextUnit();
+        }
+
+        return count;
+    }
 }
