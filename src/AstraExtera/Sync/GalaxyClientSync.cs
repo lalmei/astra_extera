@@ -6,11 +6,13 @@ namespace AstraExtera.Sync;
 public sealed class GalaxyClientSync
 {
     private readonly ICoreClientAPI api;
+    private readonly AstraTerraSkyBridge skyBridge;
     private GalaxyPlacement? placement;
 
     public GalaxyClientSync(ICoreClientAPI api)
     {
         this.api = api;
+        skyBridge = new AstraTerraSkyBridge(api);
     }
 
     public GalaxyPlacement? Placement => placement;
@@ -28,6 +30,7 @@ public sealed class GalaxyClientSync
         {
             placement = GalaxyPlacementCodec.FromUtf8(packet.Payload);
             api.Logger.Event(GalaxyPlacementCodec.Describe(placement));
+            skyBridge.Publish(placement);
         }
         catch (Exception exception)
         {

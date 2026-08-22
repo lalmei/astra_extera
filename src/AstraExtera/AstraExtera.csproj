@@ -8,6 +8,18 @@
     <VintageStoryPath Condition="'$(VintageStoryPath)' == ''">/Applications/Vintage Story.app</VintageStoryPath>
   </PropertyGroup>
 
+  <!--
+    AstraTerra is a hard dependency, so we compile against it to hand it the procedural star
+    catalog. Prefer a sibling source checkout so the two evolve together during development, and
+    fall back to the installed mod.
+  -->
+  <PropertyGroup>
+    <AstraTerraPath Condition="'$(ASTRA_TERRA)' != ''">$(ASTRA_TERRA)</AstraTerraPath>
+    <AstraTerraSiblingPath>$(MSBuildThisFileDirectory)../../../astra_terra/src/AstraTerra/bin/$(Configuration)/$(TargetFramework)</AstraTerraSiblingPath>
+    <AstraTerraPath Condition="'$(AstraTerraPath)' == '' And Exists('$(AstraTerraSiblingPath)/AstraTerra.dll')">$(AstraTerraSiblingPath)</AstraTerraPath>
+    <AstraTerraPath Condition="'$(AstraTerraPath)' == ''">$(HOME)/Library/Application Support/VintagestoryData/Mods/AstraTerra</AstraTerraPath>
+  </PropertyGroup>
+
   <ItemGroup>
     <Reference Include="0Harmony">
       <HintPath>$(VintageStoryPath)/Lib/0Harmony.dll</HintPath>
@@ -23,6 +35,11 @@
     </Reference>
     <Reference Include="protobuf-net">
       <HintPath>$(VintageStoryPath)/Lib/protobuf-net.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- Never copied locally: the game loads AstraTerra as its own mod. -->
+    <Reference Include="AstraTerra">
+      <HintPath>$(AstraTerraPath)/AstraTerra.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>
