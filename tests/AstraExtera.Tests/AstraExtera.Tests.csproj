@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <VintageStoryPath Condition="'$(VINTAGE_STORY)' != ''">$(VINTAGE_STORY)</VintageStoryPath>
+    <VintageStoryPath Condition="'$(VintageStoryPath)' == ''">/Applications/Vintage Story.app</VintageStoryPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\AstraExtera\AstraExtera.csproj" />
+    <Reference Include="VintagestoryAPI">
+      <HintPath>$(VintageStoryPath)/VintagestoryAPI.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="protobuf-net">
+      <HintPath>$(VintageStoryPath)/Lib/protobuf-net.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+</Project>

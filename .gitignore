@@ -1,0 +1,15 @@
+.dotnet/
+.dotnet-home/
+bin/
+obj/
+TestResults/
+dist/
+site/
+*.user
+*.suo
+*.nupkg
+.DS_Store
+__pycache__/
+*.pyc
+.claude
+notes/
