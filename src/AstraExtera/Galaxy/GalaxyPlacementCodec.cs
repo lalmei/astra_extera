@@ -24,15 +24,14 @@ public static class GalaxyPlacementCodec
         var kind = placement.WorldKind == ObserverWorldKind.TerrestrialMoon
             ? "terrestrial moon"
             : "terrestrial planet";
-        var morphology = placement.Galaxy.Morphology == GalaxyMorphology.BarredSpiral
-            ? "barred spiral"
-            : "unbarred spiral";
+        var morphology = placement.Galaxy.MorphologyLabel;
         return
             $"AstraExtera galaxy: seed={placement.WorldSeed}; {morphology}; " +
             $"R={placement.Location.GalactocentricRadiusKpc:0.00} kpc; " +
             $"|z|={Math.Abs(placement.Location.HeightPc):0} pc; " +
             $"[Fe/H]={placement.Location.MetallicityFeH:+0.00;-0.00}; " +
             $"iron={placement.CanHostIronCore}; ores={placement.CanHostOres}; " +
-            $"world={kind}.";
+            $"world={kind}; R⊕={placement.World.RadiusEarth:0.00}; g={placement.World.SurfaceGravityG:0.00}; " +
+            $"Fe={placement.World.BulkIronMassFraction:0.00}; T={placement.World.SurfaceTemperatureK:0} K.";
     }
 }
