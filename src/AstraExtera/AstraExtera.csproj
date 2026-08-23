@@ -37,6 +37,11 @@
       <HintPath>$(VintageStoryPath)/Lib/protobuf-net.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <!-- The GUI toolkit hands custom-draw callbacks a Cairo context, so the galaxy panel needs it. -->
+    <Reference Include="cairo-sharp">
+      <HintPath>$(VintageStoryPath)/Lib/cairo-sharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <!-- Never copied locally: the game loads AstraTerra as its own mod. -->
     <Reference Include="AstraTerra">
       <HintPath>$(AstraTerraPath)/AstraTerra.dll</HintPath>
@@ -47,6 +52,10 @@
   <ItemGroup>
     <Content Include="..\..\modinfo.json">
       <Link>modinfo.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\..\assets\**\*">
+      <Link>assets\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

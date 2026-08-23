@@ -1,3 +1,4 @@
+using AstraExtera.Client;
 using AstraExtera.Commands;
 using AstraExtera.Sync;
 using Vintagestory.API.Client;
@@ -10,6 +11,7 @@ public sealed class AstraExteraModSystem : ModSystem
 {
     private GalaxyServerSync? serverSync;
     private GalaxyClientSync? clientSync;
+    private GalaxyPanelController? galaxyPanel;
 
     public override double ExecuteOrder() => 0.6;
 
@@ -30,11 +32,14 @@ public sealed class AstraExteraModSystem : ModSystem
     {
         clientSync = new GalaxyClientSync(api);
         clientSync.Register();
+        galaxyPanel = new GalaxyPanelController(api, () => clientSync.Placement);
+        galaxyPanel.Register();
         api.Logger.Event("AstraExtera startup step: waiting for the server galaxy placement");
     }
 
     public override void Dispose()
     {
         serverSync?.Unregister();
+        galaxyPanel?.Dispose();
     }
 }
