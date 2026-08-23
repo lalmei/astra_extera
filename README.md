@@ -12,6 +12,7 @@ Worlds are not dropped into a random starfield. The save first draws a Milky Way
 - Save-game persistence and a join packet so clients share the server placement
 - A visible star catalog sampled from the galaxy's own stellar density, exported in AstraTerra's `star-catalog.v1.json` shape
 - `/astraextera galaxy` to inspect the authored site
+- **Ctrl+Shift+S** opens the in-game galaxy panel: the same facts, face-on and edge-on figures, and all-sky view as the HTML preview
 - `make galaxy-preview` writes a random-seed static HTML preview (`dist/galaxy-preview.html`) and opens it. Pass `SEED=42` to pin a known test galaxy.
 - `make star-catalog` writes `dist/star-catalog.v1.json` without opening the preview.
 
