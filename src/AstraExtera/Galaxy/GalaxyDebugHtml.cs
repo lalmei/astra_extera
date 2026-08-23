@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Net;
 using System.Text;
 
@@ -9,14 +8,8 @@ public static class GalaxyDebugHtml
     public static string Render(GalaxyPlacement placement, StarField? stars = null)
     {
         var starField = stars ?? StarFieldSampler.Sample(placement);
-        var galaxy = placement.Galaxy;
-        var location = placement.Location;
-        var morphology = galaxy.MorphologyLabel;
-        var kind = placement.WorldKind == ObserverWorldKind.TerrestrialMoon ? "terrestrial moon" : "terrestrial planet";
-        var title = $"AstraExtera galaxy preview - seed {placement.WorldSeed}";
-        var lede = galaxy.IsElliptical
-            ? "Giant elliptical: no disk or arms. The gold ring is a spherical habitable shell outside the dense core; the red mark is this save's observer."
-            : "Face-on disk and edge-on height for the server-authored galactic site. The gold ring is the habitable annulus; the red mark is this save's observer.";
+        var title = GalaxyFacts.Title(placement);
+        var lede = GalaxyFacts.Lede(placement);
 
         var html = new StringBuilder();
         html.AppendLine("<!DOCTYPE html>");
@@ -48,64 +41,18 @@ public static class GalaxyDebugHtml
         html.AppendLine("</figure>");
         html.AppendLine("</section>");
         html.AppendLine("<section class=\"facts\">");
-        html.AppendLine("<h2>Galaxy</h2>");
-        html.AppendLine("<dl>");
-        if (galaxy.IsElliptical)
+        foreach (var section in GalaxyFacts.Describe(placement, starField))
         {
-            html.AppendLine(Row("Morphology", $"{morphology}, Sérsic n {F(galaxy.SersicIndex)}, q {F(galaxy.AxisRatio)}"));
-            html.AppendLine(Row("Stellar mass", $"{galaxy.StellarMassSolar:0.00e+0} M☉"));
-            html.AppendLine(Row("Spheroid", $"Re {F(galaxy.DiskScaleLengthKpc)} kpc"));
-        }
-        else
-        {
-            html.AppendLine(Row("Morphology", $"{morphology}, {galaxy.SpiralArmCount} arms, pitch {F(galaxy.SpiralPitchDeg)}°"));
-            html.AppendLine(Row("Stellar mass", $"{galaxy.StellarMassSolar:0.00e+0} M☉"));
-            html.AppendLine(Row("Disk", $"Rd {F(galaxy.DiskScaleLengthKpc)} kpc, thin-disk h {F(galaxy.ThinDiskScaleHeightPc)} pc, B/D {F(galaxy.BulgeToDiskMass)}"));
-        }
-        html.AppendLine(Row("Habitable zone", $"{F(galaxy.InnerHabitableRadiusKpc)}–{F(galaxy.OuterHabitableRadiusKpc)} kpc"));
-        html.AppendLine(Row("Metallicity", $"gradient {F(galaxy.MetallicityGradientDexPerKpc)} dex/kpc, [Fe/H] at {F(galaxy.MetallicityReferenceRadiusKpc)} kpc = {F(galaxy.SolarAnalogMetallicityFeH)}, scatter {F(galaxy.MetallicityScatterDex)} dex"));
-        html.AppendLine("</dl>");
-        html.AppendLine("<h2>Observer</h2>");
-        html.AppendLine("<dl>");
-        html.AppendLine(Row("World", kind));
-        html.AppendLine(Row("Location", $"R {F(location.GalactocentricRadiusKpc)} kpc, θ {F(location.AzimuthRad * 180.0 / Math.PI)}°, z {F(location.HeightPc)} pc"));
-        html.AppendLine(Row("[Fe/H]", $"{location.MetallicityFeH:+0.00;-0.00}"));
-        html.AppendLine(Row("Iron / ores", $"{YesNo(placement.CanHostIronCore)} / {YesNo(placement.CanHostOres)}"));
-        html.AppendLine(Row("Spiral arm", galaxy.IsElliptical ? "none" : location.InSpiralArm ? "inside an arm" : "interarm"));
-        html.AppendLine(Row("Local density", $"ρ/ρ☉ {F(location.LocalStellarDensityRelativeToSolar)}, SN/SN☉ {F(location.SupernovaRateRelativeToSolar)}"));
-        html.AppendLine("</dl>");
-        html.AppendLine("<h2>Earth analog</h2>");
-        html.AppendLine("<dl>");
-        html.AppendLine(Row("Radius", $"{F(placement.World.RadiusEarth)} R⊕"));
-        html.AppendLine(Row("Mass", $"{F(placement.World.MassEarth)} M⊕"));
-        html.AppendLine(Row("Surface gravity", $"{F(placement.World.SurfaceGravityG)} g"));
-        html.AppendLine(Row("Bulk iron", $"{F(placement.World.BulkIronMassFraction * 100.0)} wt%  (Earth 32.1)"));
-        html.AppendLine(Row("Core mass", $"{F(placement.World.CoreMassFraction * 100.0)} %  (Earth 32.5)"));
-        html.AppendLine(Row("Mean density", $"{F(placement.World.MeanDensityEarth)} ρ⊕"));
-        html.AppendLine(Row("Surface temperature", $"{F(placement.World.SurfaceTemperatureK)} K  (placeholder climate; may change)"));
-        html.AppendLine(Row("Equilibrium temperature", $"{F(placement.World.EquilibriumTemperatureK)} K"));
-        html.AppendLine("</dl>");
-        html.AppendLine("<h2>Visible sky</h2>");
-        html.AppendLine("<dl>");
-        html.AppendLine(Row("Limiting magnitude", $"{F(starField.LimitingMagnitude)} (dark-adapted naked eye)"));
-        html.AppendLine(Row(
-            "Effective limit",
-            $"{F(starField.EffectiveLimitingMagnitude)}{(starField.Truncated ? " (render budget reached first)" : string.Empty)}"));
-        html.AppendLine(Row("Naked-eye stars", $"{starField.ExpectedVisibleCount:N0} expected, {starField.SampledCount:N0} drawn"));
-        html.AppendLine(Row("Resolved / rendered", $"{starField.Stars.Count:N0}{(starField.Truncated ? " (budget capped)" : string.Empty)}"));
-        html.AppendLine(Row(
-            "Celestial pole",
-            $"{F(placement.Orientation.PoleTiltFromGalacticPoleDeg)}° from the galactic pole (Earth 62.9°)"));
-        if (starField.Stars.Count > 0)
-        {
-            var brightest = starField.Stars[0];
-            html.AppendLine(Row(
-                "Brightest star",
-                $"m {F(brightest.ApparentMagnitude)}, M {F(brightest.AbsoluteMagnitude)}, {F(brightest.DistancePc)} pc, A_V {F(brightest.ExtinctionMagnitudes)}"));
-            html.AppendLine(Row("Median distance", $"{F(MedianDistancePc(starField))} pc"));
+            html.AppendLine($"<h2>{Escape(section.Heading)}</h2>");
+            html.AppendLine("<dl>");
+            foreach (var row in section.Rows)
+            {
+                html.AppendLine(Row(row.Term, row.Value));
+            }
+
+            html.AppendLine("</dl>");
         }
 
-        html.AppendLine("</dl>");
         html.AppendLine("</section>");
         html.AppendLine("</main>");
         html.AppendLine("</body>");
@@ -115,17 +62,6 @@ public static class GalaxyDebugHtml
 
     private static string Row(string term, string value)
         => $"<div><dt>{Escape(term)}</dt><dd>{Escape(value)}</dd></div>";
-
-    private static double MedianDistancePc(StarField starField)
-    {
-        var distances = starField.Stars.Select(static star => star.DistancePc).OrderBy(static d => d).ToArray();
-        return distances[distances.Length / 2];
-    }
-
-    private static string YesNo(bool value) => value ? "yes" : "no";
-
-    private static string F(double value)
-        => value.ToString("0.###", CultureInfo.InvariantCulture);
 
     private static string Escape(string value) => WebUtility.HtmlEncode(value);
 
