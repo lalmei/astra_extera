@@ -7,6 +7,6 @@
   "version": "0.1.0",
   "dependencies": {
     "game": "1.22.2",
-    "astraterra": "0.5.3"
+    "astraterra": "0.5.4"
   }
 }
