@@ -32,7 +32,7 @@ public static class NearBodyExport
         foreach (var body in bodies)
         {
             var face = body.Role == NearBodyRole.ParentGiant
-                ? BodyFacePainter.PaintGiant(textures, appearance, placement.WorldSeed)
+                ? BodyFacePainter.PaintGiant(textures, appearance, body.RingOpenness, placement.WorldSeed)
                 : BodyFacePainter.PaintMoon(textures, moonsByIndex[body.SourceIndex], placement.WorldSeed);
 
             entries.Add(new NearBodyEntry(

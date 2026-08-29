@@ -19,6 +19,10 @@ public enum NearBodyRole
 /// How fast it drifts across the sky in world days. Zero for the parent giant, which a locked world
 /// keeps in one place; 360 would be the rate of the sun.
 /// </param>
+/// <param name="RingOpenness">
+/// How far open this body's rings look from here, as the ellipse's short axis over its long one. Near
+/// zero for a parent giant, because a locked world sits in its ring plane.
+/// </param>
 public sealed record NearBody(
     string Id,
     NearBodyRole Role,
@@ -29,7 +33,8 @@ public sealed record NearBody(
     double HourAngleDeg,
     double HourAngleRateDegPerDay,
     double DeclinationDeg,
-    double Brightness);
+    double Brightness,
+    double RingOpenness);
 
 /// <summary>
 /// The sky of a world that is itself a moon: the giant it orbits, and its sibling moons.
@@ -67,6 +72,15 @@ public static class NearSky
     public const double MinParentDeclinationDeg = 8.0;
     public const double MaxParentDeclinationDeg = 26.0;
 
+    /// <summary>
+    /// How far the world's orbit is tilted from its giant's equator, which is also its ring plane.
+    /// A habitable moon is a regular satellite -- it formed in the disc that became the rings, which
+    /// is why it is locked at all -- so this is a fraction of a degree, the way Io sits 0.04 degrees
+    /// off Jupiter's equator and Europa 0.47.
+    /// </summary>
+    public const double MinOrbitInclinationDeg = 0.03;
+    public const double MaxOrbitInclinationDeg = 0.6;
+
     public static IReadOnlyList<NearBody> Author(GalaxyPlacement placement)
     {
         ArgumentNullException.ThrowIfNull(placement);
@@ -85,6 +99,7 @@ public static class NearSky
 
         var rng = new SplitMix64(MixSeed(placement.WorldSeed, 0x4D00));
         var giantRadius = LocalSystem.GiantRadiusEarthRadii(giantMass);
+        var inclination = rng.NextRange(MinOrbitInclinationDeg, MaxOrbitInclinationDeg);
         var ringOuter = system.ParentGiantAppearance?.Ring?.OuterRadiusPlanetRadii ?? 1.0;
         var hourAngle = SignedSpread(ref rng, MinParentHourAngleDeg, MaxParentHourAngleDeg);
         var declination = SignedSpread(ref rng, MinParentDeclinationDeg, MaxParentDeclinationDeg);
@@ -101,7 +116,8 @@ public static class NearSky
                 hourAngle,
                 HourAngleRateDegPerDay: 0.0,
                 declination,
-                Brightness: 0.92)
+                Brightness: 0.92,
+                RingOpenness: RingOpennessFromMoon(inclination, homeRadiusEarth: placement.World.RadiusEarth, homeOrbit))
         };
 
         var homePeriod = HomePeriodDays(system);
@@ -129,10 +145,34 @@ public static class NearSky
                 HourAngleDeg: rng.NextRange(0.0, 360.0),
                 HourAngleRateDegPerDay: HourAngleRateDegPerDay(homePeriod, moon.DayLengthDays),
                 DeclinationDeg: declination + rng.NextRange(-6.0, 6.0),
-                Brightness: rng.NextRange(0.40, 0.62)));
+                Brightness: rng.NextRange(0.40, 0.62),
+                RingOpenness: 0.0));
         }
 
         return bodies;
+    }
+
+    /// <summary>
+    /// How far open the parent giant's rings look from its own moon -- which is barely at all.
+    /// </summary>
+    /// <remarks>
+    /// The world orbits in the giant's equatorial plane, and the rings lie in that same plane, so an
+    /// observer is inside the ring plane and sees the rings edge-on: a line across the planet rather
+    /// than an ellipse around it. Only two things lift them off that line, and both are small. The
+    /// orbit's own tilt swings the view by its inclination twice a day, and standing away from the
+    /// world's equator lifts the observer up to one world radius clear of the plane -- which at a few
+    /// dozen radii out is a degree or so, and is usually the larger of the two.
+    /// </remarks>
+    public static double RingOpennessFromMoon(double inclinationDeg, double homeRadiusEarth, double homeOrbit)
+    {
+        if (homeOrbit <= 0.0)
+        {
+            return 0.0;
+        }
+
+        var fromLatitude = Math.Atan(homeRadiusEarth / homeOrbit);
+        var fromInclination = inclinationDeg * Math.PI / 180.0;
+        return Math.Clamp(Math.Sin(fromLatitude + fromInclination), 0.0, 1.0);
     }
 
     /// <summary>Apparent diameter of a body of <paramref name="radius"/> at <paramref name="distance"/>.</summary>
