@@ -1,0 +1,791 @@
+{
+  "schema_version": 1,
+  "textures": [
+    {
+      "id": "gas-giant-01",
+      "file": "gas-giant-01.png",
+      "kind": "giant",
+      "red": 0.6124,
+      "green": 0.5504,
+      "blue": 0.4924,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "gas-giant-02",
+      "file": "gas-giant-02.png",
+      "kind": "giant",
+      "red": 0.7554,
+      "green": 0.6961,
+      "blue": 0.6307,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "gas-giant-03",
+      "file": "gas-giant-03.png",
+      "kind": "giant",
+      "red": 0.6529,
+      "green": 0.5249,
+      "blue": 0.4371,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "gas-giant-04",
+      "file": "gas-giant-04.png",
+      "kind": "giant",
+      "red": 0.3492,
+      "green": 0.4089,
+      "blue": 0.4786,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "gas-giant-05",
+      "file": "gas-giant-05.png",
+      "kind": "giant",
+      "red": 0.4687,
+      "green": 0.5539,
+      "blue": 0.531,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "gas-giant-06",
+      "file": "gas-giant-06.png",
+      "kind": "giant",
+      "red": 0.2608,
+      "green": 0.3305,
+      "blue": 0.4897,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "gas-giant-07",
+      "file": "gas-giant-07.png",
+      "kind": "giant",
+      "red": 0.6937,
+      "green": 0.5771,
+      "blue": 0.3469,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "gas-giant-08",
+      "file": "gas-giant-08.png",
+      "kind": "giant",
+      "red": 0.6249,
+      "green": 0.5495,
+      "blue": 0.4997,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "gas-giant-09",
+      "file": "gas-giant-09.png",
+      "kind": "giant",
+      "red": 0.5317,
+      "green": 0.4381,
+      "blue": 0.5147,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "gas-giant-10",
+      "file": "gas-giant-10.png",
+      "kind": "giant",
+      "red": 0.5303,
+      "green": 0.6079,
+      "blue": 0.6405,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "gas-giant-11",
+      "file": "gas-giant-11.png",
+      "kind": "giant",
+      "red": 0.3072,
+      "green": 0.4071,
+      "blue": 0.4191,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "gas-giant-12",
+      "file": "gas-giant-12.png",
+      "kind": "giant",
+      "red": 0.2872,
+      "green": 0.1586,
+      "blue": 0.1105,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-01",
+      "file": "moon-01.png",
+      "kind": "moon",
+      "red": 0.3959,
+      "green": 0.3309,
+      "blue": 0.2947,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-02",
+      "file": "moon-02.png",
+      "kind": "moon",
+      "red": 0.3971,
+      "green": 0.2926,
+      "blue": 0.2149,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-03",
+      "file": "moon-03.png",
+      "kind": "moon",
+      "red": 0.5649,
+      "green": 0.4327,
+      "blue": 0.3334,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-04",
+      "file": "moon-04.png",
+      "kind": "moon",
+      "red": 0.5489,
+      "green": 0.5107,
+      "blue": 0.4819,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-05",
+      "file": "moon-05.png",
+      "kind": "moon",
+      "red": 0.6596,
+      "green": 0.5021,
+      "blue": 0.3095,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-06",
+      "file": "moon-06.png",
+      "kind": "moon",
+      "red": 0.2834,
+      "green": 0.2152,
+      "blue": 0.1576,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-07",
+      "file": "moon-07.png",
+      "kind": "moon",
+      "red": 0.5807,
+      "green": 0.5166,
+      "blue": 0.4836,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-08",
+      "file": "moon-08.png",
+      "kind": "moon",
+      "red": 0.5509,
+      "green": 0.41,
+      "blue": 0.2915,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-09",
+      "file": "moon-09.png",
+      "kind": "moon",
+      "red": 0.5062,
+      "green": 0.4186,
+      "blue": 0.3462,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-10",
+      "file": "moon-10.png",
+      "kind": "moon",
+      "red": 0.5961,
+      "green": 0.3737,
+      "blue": 0.1148,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-11",
+      "file": "moon-11.png",
+      "kind": "moon",
+      "red": 0.7239,
+      "green": 0.6456,
+      "blue": 0.5623,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-12",
+      "file": "moon-12.png",
+      "kind": "moon",
+      "red": 0.7097,
+      "green": 0.7136,
+      "blue": 0.7169,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-13",
+      "file": "moon-13.png",
+      "kind": "moon",
+      "red": 0.5198,
+      "green": 0.41,
+      "blue": 0.3376,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-14",
+      "file": "moon-14.png",
+      "kind": "moon",
+      "red": 0.2858,
+      "green": 0.2096,
+      "blue": 0.1653,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-15",
+      "file": "moon-15.png",
+      "kind": "moon",
+      "red": 0.5491,
+      "green": 0.491,
+      "blue": 0.4403,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-16",
+      "file": "moon-16.png",
+      "kind": "moon",
+      "red": 0.7394,
+      "green": 0.6548,
+      "blue": 0.5033,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-17",
+      "file": "moon-17.png",
+      "kind": "moon",
+      "red": 0.4074,
+      "green": 0.3379,
+      "blue": 0.2948,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-18",
+      "file": "moon-18.png",
+      "kind": "moon",
+      "red": 0.6775,
+      "green": 0.665,
+      "blue": 0.6916,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-19",
+      "file": "moon-19.png",
+      "kind": "moon",
+      "red": 0.6014,
+      "green": 0.5748,
+      "blue": 0.5588,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-20",
+      "file": "moon-20.png",
+      "kind": "moon",
+      "red": 0.4273,
+      "green": 0.4277,
+      "blue": 0.4255,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-21",
+      "file": "moon-21.png",
+      "kind": "moon",
+      "red": 0.5132,
+      "green": 0.2801,
+      "blue": 0.1621,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-22",
+      "file": "moon-22.png",
+      "kind": "moon",
+      "red": 0.7127,
+      "green": 0.6351,
+      "blue": 0.5635,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-23",
+      "file": "moon-23.png",
+      "kind": "moon",
+      "red": 0.5287,
+      "green": 0.4254,
+      "blue": 0.3251,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-24",
+      "file": "moon-24.png",
+      "kind": "moon",
+      "red": 0.5229,
+      "green": 0.4286,
+      "blue": 0.3069,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-25",
+      "file": "moon-25.png",
+      "kind": "moon",
+      "red": 0.6098,
+      "green": 0.542,
+      "blue": 0.5204,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-26",
+      "file": "moon-26.png",
+      "kind": "moon",
+      "red": 0.32,
+      "green": 0.2777,
+      "blue": 0.2573,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-27",
+      "file": "moon-27.png",
+      "kind": "moon",
+      "red": 0.5212,
+      "green": 0.4391,
+      "blue": 0.3694,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-28",
+      "file": "moon-28.png",
+      "kind": "moon",
+      "red": 0.4998,
+      "green": 0.5664,
+      "blue": 0.6026,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-29",
+      "file": "moon-29.png",
+      "kind": "moon",
+      "red": 0.5285,
+      "green": 0.4835,
+      "blue": 0.441,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-30",
+      "file": "moon-30.png",
+      "kind": "moon",
+      "red": 0.4388,
+      "green": 0.4027,
+      "blue": 0.3789,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-31",
+      "file": "moon-31.png",
+      "kind": "moon",
+      "red": 0.6612,
+      "green": 0.6198,
+      "blue": 0.667,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-32",
+      "file": "moon-32.png",
+      "kind": "moon",
+      "red": 0.6069,
+      "green": 0.5412,
+      "blue": 0.5239,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-33",
+      "file": "moon-33.png",
+      "kind": "moon",
+      "red": 0.5445,
+      "green": 0.5022,
+      "blue": 0.4727,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-34",
+      "file": "moon-34.png",
+      "kind": "moon",
+      "red": 0.6505,
+      "green": 0.6603,
+      "blue": 0.6684,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-35",
+      "file": "moon-35.png",
+      "kind": "moon",
+      "red": 0.4871,
+      "green": 0.4345,
+      "blue": 0.3863,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-36",
+      "file": "moon-36.png",
+      "kind": "moon",
+      "red": 0.5971,
+      "green": 0.5756,
+      "blue": 0.5661,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-37",
+      "file": "moon-37.png",
+      "kind": "moon",
+      "red": 0.3096,
+      "green": 0.2484,
+      "blue": 0.2157,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-38",
+      "file": "moon-38.png",
+      "kind": "moon",
+      "red": 0.2944,
+      "green": 0.1926,
+      "blue": 0.1224,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-39",
+      "file": "moon-39.png",
+      "kind": "moon",
+      "red": 0.4535,
+      "green": 0.4076,
+      "blue": 0.3772,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-40",
+      "file": "moon-40.png",
+      "kind": "moon",
+      "red": 0.4808,
+      "green": 0.3633,
+      "blue": 0.2921,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-41",
+      "file": "moon-41.png",
+      "kind": "moon",
+      "red": 0.5544,
+      "green": 0.51,
+      "blue": 0.4647,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-42",
+      "file": "moon-42.png",
+      "kind": "moon",
+      "red": 0.6224,
+      "green": 0.6018,
+      "blue": 0.5925,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-43",
+      "file": "moon-43.png",
+      "kind": "moon",
+      "red": 0.39,
+      "green": 0.3872,
+      "blue": 0.3831,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-44",
+      "file": "moon-44.png",
+      "kind": "moon",
+      "red": 0.6275,
+      "green": 0.5516,
+      "blue": 0.4729,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-45",
+      "file": "moon-45.png",
+      "kind": "moon",
+      "red": 0.4755,
+      "green": 0.337,
+      "blue": 0.2316,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-46",
+      "file": "moon-46.png",
+      "kind": "moon",
+      "red": 0.3767,
+      "green": 0.3598,
+      "blue": 0.3433,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-47",
+      "file": "moon-47.png",
+      "kind": "moon",
+      "red": 0.6788,
+      "green": 0.525,
+      "blue": 0.3922,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-48",
+      "file": "moon-48.png",
+      "kind": "moon",
+      "red": 0.6819,
+      "green": 0.628,
+      "blue": 0.621,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-49",
+      "file": "moon-49.png",
+      "kind": "moon",
+      "red": 0.4141,
+      "green": 0.2635,
+      "blue": 0.1708,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-50",
+      "file": "moon-50.png",
+      "kind": "moon",
+      "red": 0.3152,
+      "green": 0.2742,
+      "blue": 0.2551,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-51",
+      "file": "moon-51.png",
+      "kind": "moon",
+      "red": 0.6592,
+      "green": 0.5322,
+      "blue": 0.4278,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-52",
+      "file": "moon-52.png",
+      "kind": "moon",
+      "red": 0.5252,
+      "green": 0.4979,
+      "blue": 0.4742,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-53",
+      "file": "moon-53.png",
+      "kind": "moon",
+      "red": 0.4636,
+      "green": 0.4143,
+      "blue": 0.3887,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "moon-54",
+      "file": "moon-54.png",
+      "kind": "moon",
+      "red": 0.5712,
+      "green": 0.411,
+      "blue": 0.1882,
+      "disc_fraction": 0.9434
+    },
+    {
+      "id": "ring-01",
+      "file": "ring-01.png",
+      "kind": "ring",
+      "red": 0.8661,
+      "green": 0.8767,
+      "blue": 0.8975,
+      "disc_fraction": 1.0,
+      "outer_radius_fraction": 0.49,
+      "inner_radius_fraction": 0.3681,
+      "baked_openness": 0.2116
+    },
+    {
+      "id": "ring-02",
+      "file": "ring-02.png",
+      "kind": "ring",
+      "red": 0.7978,
+      "green": 0.7493,
+      "blue": 0.6839,
+      "disc_fraction": 1.0,
+      "outer_radius_fraction": 0.49,
+      "inner_radius_fraction": 0.3095,
+      "baked_openness": 0.2366
+    },
+    {
+      "id": "ring-03",
+      "file": "ring-03.png",
+      "kind": "ring",
+      "red": 0.7885,
+      "green": 0.7998,
+      "blue": 0.8132,
+      "disc_fraction": 1.0,
+      "outer_radius_fraction": 0.49,
+      "inner_radius_fraction": 0.2847,
+      "baked_openness": 0.227
+    },
+    {
+      "id": "ring-04",
+      "file": "ring-04.png",
+      "kind": "ring",
+      "red": 0.4307,
+      "green": 0.3904,
+      "blue": 0.3521,
+      "disc_fraction": 1.0,
+      "outer_radius_fraction": 0.49,
+      "inner_radius_fraction": 0.3164,
+      "baked_openness": 0.2452
+    },
+    {
+      "id": "ring-05",
+      "file": "ring-05.png",
+      "kind": "ring",
+      "red": 0.879,
+      "green": 0.8483,
+      "blue": 0.8042,
+      "disc_fraction": 1.0,
+      "outer_radius_fraction": 0.49,
+      "inner_radius_fraction": 0.2848,
+      "baked_openness": 0.2435
+    },
+    {
+      "id": "ring-06",
+      "file": "ring-06.png",
+      "kind": "ring",
+      "red": 0.8474,
+      "green": 0.8176,
+      "blue": 0.7856,
+      "disc_fraction": 1.0,
+      "outer_radius_fraction": 0.49,
+      "inner_radius_fraction": 0.2793,
+      "baked_openness": 0.2617
+    },
+    {
+      "id": "ring-07",
+      "file": "ring-07.png",
+      "kind": "ring",
+      "red": 0.7607,
+      "green": 0.7059,
+      "blue": 0.6345,
+      "disc_fraction": 1.0,
+      "outer_radius_fraction": 0.49,
+      "inner_radius_fraction": 0.2767,
+      "baked_openness": 0.2744
+    },
+    {
+      "id": "ring-08",
+      "file": "ring-08.png",
+      "kind": "ring",
+      "red": 0.7879,
+      "green": 0.8021,
+      "blue": 0.8134,
+      "disc_fraction": 1.0,
+      "outer_radius_fraction": 0.49,
+      "inner_radius_fraction": 0.2634,
+      "baked_openness": 0.2527
+    },
+    {
+      "id": "ring-09",
+      "file": "ring-09.png",
+      "kind": "ring",
+      "red": 0.8876,
+      "green": 0.8602,
+      "blue": 0.8266,
+      "disc_fraction": 1.0,
+      "outer_radius_fraction": 0.49,
+      "inner_radius_fraction": 0.3176,
+      "baked_openness": 0.2557
+    },
+    {
+      "id": "ring-10",
+      "file": "ring-10.png",
+      "kind": "ring",
+      "red": 0.8752,
+      "green": 0.8421,
+      "blue": 0.8013,
+      "disc_fraction": 1.0,
+      "outer_radius_fraction": 0.49,
+      "inner_radius_fraction": 0.2812,
+      "baked_openness": 0.2781
+    },
+    {
+      "id": "ring-11",
+      "file": "ring-11.png",
+      "kind": "ring",
+      "red": 0.4122,
+      "green": 0.3756,
+      "blue": 0.3436,
+      "disc_fraction": 1.0,
+      "outer_radius_fraction": 0.49,
+      "inner_radius_fraction": 0.3838,
+      "baked_openness": 0.2222
+    },
+    {
+      "id": "ring-12",
+      "file": "ring-12.png",
+      "kind": "ring",
+      "red": 0.8766,
+      "green": 0.8845,
+      "blue": 0.9045,
+      "disc_fraction": 1.0,
+      "outer_radius_fraction": 0.49,
+      "inner_radius_fraction": 0.3616,
+      "baked_openness": 0.2353
+    },
+    {
+      "id": "ring-13",
+      "file": "ring-13.png",
+      "kind": "ring",
+      "red": 0.8344,
+      "green": 0.7975,
+      "blue": 0.7561,
+      "disc_fraction": 1.0,
+      "outer_radius_fraction": 0.49,
+      "inner_radius_fraction": 0.3032,
+      "baked_openness": 0.2601
+    },
+    {
+      "id": "ring-14",
+      "file": "ring-14.png",
+      "kind": "ring",
+      "red": 0.8965,
+      "green": 0.8685,
+      "blue": 0.8284,
+      "disc_fraction": 1.0,
+      "outer_radius_fraction": 0.49,
+      "inner_radius_fraction": 0.2728,
+      "baked_openness": 0.2611
+    },
+    {
+      "id": "ring-15",
+      "file": "ring-15.png",
+      "kind": "ring",
+      "red": 0.851,
+      "green": 0.8026,
+      "blue": 0.7291,
+      "disc_fraction": 1.0,
+      "outer_radius_fraction": 0.49,
+      "inner_radius_fraction": 0.2035,
+      "baked_openness": 0.2646
+    },
+    {
+      "id": "ring-16",
+      "file": "ring-16.png",
+      "kind": "ring",
+      "red": 0.7537,
+      "green": 0.712,
+      "blue": 0.6724,
+      "disc_fraction": 1.0,
+      "outer_radius_fraction": 0.49,
+      "inner_radius_fraction": 0.2329,
+      "baked_openness": 0.2946
+    }
+  ]
+}
