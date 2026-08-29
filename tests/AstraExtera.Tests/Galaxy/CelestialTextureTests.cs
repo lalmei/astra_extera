@@ -159,6 +159,45 @@ public sealed class CelestialTextureTests
         Assert.Equal(255, Alpha(bare, 64, 64));
     }
 
+    /// <summary>
+    /// The two halves of a ring meet along its major axis. Together they have to add back up to the
+    /// whole ring -- no seam down the middle, and no double-drawn band either.
+    /// </summary>
+    [Fact]
+    public void The_Two_Halves_Of_A_Ring_Add_Back_Up_To_One_Ring()
+    {
+        var manifest = LoadManifest();
+        var giant = manifest.Giants.First();
+        var ringRecord = manifest.Rings.First();
+        var ring = new PlanetRing(1.4, 2.8, 0.9, 0.0, RingComposition.Ice, 0.95f, 0.95f, 0.97f);
+
+        var face = CelestialFaceComposer.Compose(
+            Source(giant), Source(ringRecord), ringRecord, ring, openness: 0.5, rollRadians: 0.4, size: 256);
+
+        // Walk the ring's major axis out from the globe on both sides: the ring is there on both,
+        // and neither side is a row of half-transparent pixels where the split ran.
+        var centre = 128;
+        var globeRadius = (int)(128 * face.DiscFraction);
+        var above = 0;
+        var below = 0;
+        for (var radius = globeRadius + 6; radius < 120; radius++)
+        {
+            var dx = Math.Cos(0.4) * radius;
+            var dy = Math.Sin(0.4) * radius;
+            if (Alpha(face, (int)(centre + dx), (int)(centre + dy)) > 40)
+            {
+                above++;
+            }
+
+            if (Alpha(face, (int)(centre - dx), (int)(centre - dy)) > 40)
+            {
+                below++;
+            }
+        }
+
+        Assert.True(above > 0 && below > 0, $"the ring is missing on one side: {above} vs {below}");
+    }
+
     [Fact]
     public void A_Body_With_No_Artwork_Still_Gets_A_Face()
     {

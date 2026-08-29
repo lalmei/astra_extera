@@ -37,6 +37,13 @@ public static class CelestialFaceComposer
     /// <summary>How much of the face's half-width the outermost feature reaches.</summary>
     public const double FaceMargin = 0.98;
 
+    /// <summary>
+    /// How wide the seam is where the ring passes behind the globe, in face pixels. The two halves
+    /// of a ring meet along its major axis, and a hard cut there leaves a one-pixel stair down the
+    /// side of the planet; each half is faded across this instead.
+    /// </summary>
+    public const double SplitFeatherPx = 1.5;
+
     public static CelestialFace Compose(
         CelestialSource globe,
         CelestialSource? ring,
@@ -150,16 +157,29 @@ public static class CelestialFaceComposer
                 // Into the ring's own frame: undo the roll, then undo the squash the tilt applies.
                 var u = (dx * cos) - (dy * sin);
                 var v = (dx * sin) + (dy * cos);
-                if (front != v > 0.0)
+                var share = Math.Clamp(0.5 + (v / (2.0 * SplitFeatherPx)), 0.0, 1.0);
+                if (!front)
+                {
+                    share = 1.0 - share;
+                }
+
+                if (share <= 0.0)
                 {
                     continue;
                 }
 
                 var sample = Sample(ring, sourceHalf + (u * scale), sourceHalf + (v * squash * scale));
-                if (sample != 0)
+                if (sample == 0)
                 {
-                    pixels[(y * size) + x] = Over(sample, pixels[(y * size) + x]);
+                    continue;
                 }
+
+                if (share < 1.0)
+                {
+                    sample = WithAlpha(sample, (int)Math.Round(Alpha(sample) * share));
+                }
+
+                pixels[(y * size) + x] = Over(sample, pixels[(y * size) + x]);
             }
         }
     }
@@ -229,6 +249,9 @@ public static class CelestialFaceComposer
 
     private static int Mix(int source, int destination, double sourceAlpha, double destinationAlpha, double outAlpha)
         => (int)Math.Round(((source * sourceAlpha) + (destination * destinationAlpha * (1.0 - sourceAlpha))) / outAlpha);
+
+    private static int WithAlpha(int rgba, int alpha)
+        => Pack(Red(rgba), Green(rgba), Blue(rgba), alpha);
 
     public static int Pack(int red, int green, int blue, int alpha)
         => (Math.Clamp(alpha, 0, 255) << 24)
