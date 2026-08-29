@@ -56,6 +56,36 @@ public static class GalaxySkyView
     /// </summary>
     public static byte[] RenderGlowRgb(GalaxyPlacement placement)
     {
+        ArgumentNullException.ThrowIfNull(placement);
+        lock (GlowCacheLock)
+        {
+            if (cachedGlowSeed == placement.WorldSeed && cachedGlow is not null)
+            {
+                return (byte[])cachedGlow.Clone();
+            }
+        }
+
+        var rendered = ComputeGlowRgb(placement);
+        lock (GlowCacheLock)
+        {
+            cachedGlowSeed = placement.WorldSeed;
+            cachedGlow = (byte[])rendered.Clone();
+        }
+
+        return rendered;
+    }
+
+    /// <summary>
+    /// Marching ~25 million density samples takes seconds, and both the skybox and the galaxy panel
+    /// want the same map of the same world. One save's glow is kept so only the first caller pays;
+    /// callers may write over what they are handed, so the cache keeps its own copy.
+    /// </summary>
+    private static readonly object GlowCacheLock = new();
+    private static long cachedGlowSeed;
+    private static byte[]? cachedGlow;
+
+    private static byte[] ComputeGlowRgb(GalaxyPlacement placement)
+    {
         var galaxy = placement.Galaxy;
         var frame = new ObserverFrame(placement.Location);
         var ds = MaxDistanceKpc / Steps;

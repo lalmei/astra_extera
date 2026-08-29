@@ -92,6 +92,29 @@ public sealed class GalaxySkyViewTests
             "the nucleus should be brighter than the galactic pole on the equatorial map");
     }
 
+    /// <summary>
+    /// The glow costs seconds to march, so one save's map is remembered for whoever asks next --
+    /// the skybox at join, the panel when it opens. A caller that writes stars over what it was
+    /// handed must not be able to leave those stars in the cache.
+    /// </summary>
+    [Fact]
+    public void The_Remembered_Glow_Survives_A_Caller_Writing_Over_It()
+    {
+        var placement = GalaxyGenerator.Generate(42);
+        var first = GalaxySkyView.RenderGlowRgb(placement);
+        var expected = (byte[])first.Clone();
+
+        Array.Fill(first, (byte)255);
+        var second = GalaxySkyView.RenderGlowRgb(placement);
+
+        Assert.Equal(expected, second);
+        Assert.NotSame(second, GalaxySkyView.RenderGlowRgb(placement));
+
+        // A different save must not be handed the one that is remembered.
+        var other = GalaxySkyView.RenderGlowRgb(GalaxyGenerator.Generate(7));
+        Assert.NotEqual(expected, other);
+    }
+
     private static (byte Red, byte Green, byte Blue) SampleEquatorial(byte[] rgb, double rightAscension, double declination)
     {
         var (u, v) = EquirectangularSampler.EquatorialUv(rightAscension, declination);

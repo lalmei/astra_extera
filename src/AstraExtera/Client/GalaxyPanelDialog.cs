@@ -58,9 +58,9 @@ public sealed class GalaxyPanelDialog : GuiDialog
         placement = authored.Placement;
         starField = authored.StarField;
         localSky = authored.LocalSky;
-        sky = GalaxySkyView.RenderRgb(placement, starField);
         factsHeight = GalaxyPanelPainter.MeasureFactsHeight(placement, starField, localSky);
         Compose();
+        BeginSkyRender();
     }
 
     public override string ToggleKeyCombinationCode => GalaxyPanelController.HotkeyCode;
@@ -157,4 +157,10 @@ public sealed class GalaxyPanelDialog : GuiDialog
 
     private void OnDrawFigures(Context ctx, ImageSurface surface, ElementBounds currentBounds)
         => GalaxyPanelPainter.PaintFigures(ctx, currentBounds, placement, sky, localSky);
+
+    public override void Dispose()
+    {
+        disposed = true;
+        base.Dispose();
+    }
 }
