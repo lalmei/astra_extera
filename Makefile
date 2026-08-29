@@ -17,7 +17,7 @@ PACKAGE_FILE = $(DIST_DIR)/AstraExtera-$(MOD_VERSION).zip
 GALAXY_PREVIEW := $(DIST_DIR)/galaxy-preview.html
 STAR_CATALOG := $(DIST_DIR)/star-catalog.v1.json
 
-.PHONY: help test build package deploy run deploy-run galaxy-preview star-catalog
+.PHONY: help test build package deploy run deploy-run galaxy-preview star-catalog celestial-textures
 
 help:
 	@printf "Targets:\n"
@@ -30,6 +30,7 @@ help:
 	@printf "  make galaxy-preview          Write a random-seed HTML preview to $(GALAXY_PREVIEW) and open it\n"
 	@printf "  make galaxy-preview SEED=42  Same, pinned to seed 42\n"
 	@printf "  make star-catalog            Write $(STAR_CATALOG) without opening the preview\n"
+	@printf "  make celestial-textures      Rebuild the shipped planet, moon and ring textures from the source art\n"
 	@printf "  make star-catalog SEED=42    Same, pinned to seed 42\n"
 
 test:
@@ -59,6 +60,10 @@ deploy-run: deploy run
 galaxy-preview:
 	@mkdir -p "$(DIST_DIR)"
 	@env $(DOTNET_ENV) dotnet run --project tools/GalaxyPreview/GalaxyPreview.csproj -c $(CONFIGURATION) -- --out "$(GALAXY_PREVIEW)" --open $(if $(SEED),--seed $(SEED),)
+
+# The artwork is prepared once and committed; the game never runs this. Needs Pillow and numpy.
+celestial-textures:
+	@python3 tools/celestial-textures/prepare.py
 
 star-catalog:
 	@mkdir -p "$(DIST_DIR)"
