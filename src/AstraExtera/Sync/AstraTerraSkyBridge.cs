@@ -65,9 +65,14 @@ public sealed class AstraTerraSkyBridge
         astraTerra.ReplaceCometCatalog(LocalSystemSkyExport.ToCometCatalog(sky.LocalSky));
         astraTerra.ReplaceMeteorShowers(LocalSystemSkyExport.ToMeteorShowers(sky.LocalSky));
 
+        // A world that is itself a moon does not get Earth's moon: it gets the giant it orbits,
+        // fixed in one spot because it is tidally locked to it, and its sibling moons.
+        var nearBodies = NearBodyExport.Build(sky.Placement);
+        astraTerra.ReplaceNearBodies(nearBodies);
+
         publishedSeed = sky.Placement.WorldSeed;
         api.Logger.Event(
-            "AstraExtera published the stored sky: stars={0}; nakedEyeStars={1:0}; planets={2}; comets={3}; showers={4}; pole={5:0.0}deg from the galactic pole; host={6} {7:0.00} Msun at {8:0.00} AU.",
+            "AstraExtera published the stored sky: stars={0}; nakedEyeStars={1:0}; planets={2}; comets={3}; showers={4}; nearBodies={9} (vanilla moon hidden={10}); pole={5:0.0}deg from the galactic pole; host={6} {7:0.00} Msun at {8:0.00} AU.",
             catalog.Stars.Count,
             sky.StarField.ExpectedVisibleCount,
             sky.LocalSky.Planets.Count,
@@ -76,6 +81,8 @@ public sealed class AstraTerraSkyBridge
             sky.Placement.Orientation.PoleTiltFromGalacticPoleDeg,
             sky.Placement.System.StarClassLabel,
             sky.Placement.System.StarMassSolar,
-            sky.Placement.System.OrbitalDistanceAu);
+            sky.Placement.System.OrbitalDistanceAu,
+            nearBodies.Bodies.Count,
+            nearBodies.HidesVanillaMoon);
     }
 }

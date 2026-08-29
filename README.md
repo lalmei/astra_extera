@@ -1,6 +1,6 @@
 # AstraExtera
 
-Vintage Story 1.22 mod. Depends on [AstraTerra](https://github.com/lalmei/astraterra) **v0.5.4 or newer** for the sky engine, then replaces Earth's catalog with a **server-authored** procedural sky so every player sees the same heavens.
+Vintage Story 1.22 mod. Depends on [AstraTerra](https://github.com/lalmei/astraterra) **v0.6.0 or newer** for the sky engine, then replaces Earth's catalog with a **server-authored** procedural sky so every player sees the same heavens.
 
 Worlds are not dropped into a random starfield. The save first draws a Milky Way analog, then a thin-disk location inside that galaxy's habitable annulus, and only keeps sites metal-rich enough for iron cores and ores. A host star and a habitable orbit come next, then the visible sky.
 
@@ -12,6 +12,7 @@ Worlds are not dropped into a random starfield. The save first draws a Milky Way
 - A local system: K/G/F host (M allowed for moons), liquid-water orbit, shepherd giant past the snow line, up to three inner rocky worlds, an optional second gas giant and one or two ice giants beyond it. Every body is Hill-separated from the ones already placed. Moons keep a Roche-safe day under 7 Earth days
 - Giants are authored bodies rather than markers: an obliquity, a rotation period and the banding it whips up, a long-lived storm parked between two jets, a ring system in the planet's equatorial plane, and a family of moons outside the rings. Rings carry a composition -- ice, rock and dust, or sooted debris -- which sets how bright and how coloured they read
 - Companion planets, leftover comets, and comet-fed meteor showers authored into AstraTerra's sky. Earth's wanderers are replaced, not mixed in.
+- On a world that is itself a moon, the sky gets that world's own parent: the giant hangs fixed and tens of degrees wide, phased by the sun, with its sibling moons drifting past it. Vintage Story's moon stands down, since a moon has none of its own
 - Save-game persistence of the galaxy, the sampled star catalog, and the local-system sky; the join packet carries all three so clients render the stored sky instead of sampling again
 - A visible star catalog sampled from the galaxy's own stellar density, exported in AstraTerra's `star-catalog.v1.json` shape
 - `/astraextera galaxy` to inspect the authored site
@@ -54,6 +55,27 @@ mod (override with `ASTRA_TERRA`).
 Earth's guide groups, sky cultures and deep-sky objects are all keyed to Earth's own star ids and
 positions, so they are replaced with empty sets rather than pointed at unrelated stars. Regenerating
 deep-sky objects from the galaxy model is still open.
+
+### The sky of a moon
+
+A habitable moon is tidally locked to its giant -- one orbit is one day, which is what gives such a
+world a day at all -- and the consequence on the ground is stark. The giant never rises and never
+sets. It hangs at one spot, painted with the bands, storm and rings AstraExtera authored for it,
+tens of degrees across, and goes through its phases as the sun goes round: full near midnight, dark
+at noon. It sits off the meridian rather than on it, because a giant on the sun's noon track would
+eclipse the sun every single day.
+
+Sibling moons drift past it at the rate the two orbits beat against each other: an inner one laps
+the world and slides one way, an outer one falls behind and slides the other. The sun is the
+limiting case of an infinitely distant sibling, going round once a day.
+
+AstraExtera paints each face and hands it to AstraTerra's `ReplaceNearBodies`, which places the body
+and lights it -- the terminator is shaded from the sphere normal and the real sun direction rather
+than painted in. Vintage Story's own moon is asked to stand down. Only its drawing stops: moonlight,
+the phase the calendar reports, and the length of the day are untouched, so the day cycle is the one
+the world always had.
+
+A world that is a planet keeps the vanilla moon for now; it has no moons of its own in the model.
 
 A giant's rings reach the sky as brightness and nothing else, because AstraTerra draws every planet
 as a point of light: an open sheet of ring ice can add most of a magnitude, an edge-on or sooty ring
