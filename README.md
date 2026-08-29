@@ -1,18 +1,21 @@
 # AstraExtera
 
-Vintage Story 1.22 mod. Depends on [AstraTerra](https://github.com/lalmei/astraterra) for the sky engine, then replaces Earth's catalog with a **server-authored** procedural sky so every player sees the same heavens.
+Vintage Story 1.22 mod. Depends on [AstraTerra](https://github.com/lalmei/astraterra) **v0.5.4 or newer** for the sky engine, then replaces Earth's catalog with a **server-authored** procedural sky so every player sees the same heavens.
 
-Worlds are not dropped into a random starfield. The save first draws a Milky Way analog, then a thin-disk location inside that galaxy's habitable annulus, and only keeps sites metal-rich enough for iron cores and ores. Stellar systems and the visible sky come after that placement.
+Worlds are not dropped into a random starfield. The save first draws a Milky Way analog, then a thin-disk location inside that galaxy's habitable annulus, and only keeps sites metal-rich enough for iron cores and ores. A host star and a habitable orbit come next, then the visible sky.
 
 ## What is implemented
 
 - Deterministic galaxy + galactocentric location from the Vintage Story world seed
 - Galactic habitable zone with `[Fe/H]` floors for iron and ores. Spirals are the common hosts; giant ellipticals are rare and use a spheroid shell outside the dense core instead of a thin disk.
-- Playable worlds are Earth analogs: ~1 R⊕, ~1 g, Earth-like bulk iron / core fraction, and Earth-like temperature (climate may change later)
-- Save-game persistence and a join packet so clients share the server placement
+- Playable worlds are Earth analogs: ~1 Rearth, ~1 g, Earth-like bulk iron / core fraction, and Earth-like temperature derived from the host star
+- A local system: K/G/F host (M allowed for moons), liquid-water orbit, shepherd giant past the snow line, optional inner rocky and ice giant. Moons keep a Roche-safe day under 7 Earth days
+- Companion planets, leftover comets, and comet-fed meteor showers authored into AstraTerra's sky. Earth's wanderers are replaced, not mixed in.
+- Save-game persistence of the galaxy, the sampled star catalog, and the local-system sky; the join packet carries all three so clients render the stored sky instead of sampling again
 - A visible star catalog sampled from the galaxy's own stellar density, exported in AstraTerra's `star-catalog.v1.json` shape
 - `/astraextera galaxy` to inspect the authored site
-- **Ctrl+Shift+S** opens the in-game galaxy panel: the same facts, face-on and edge-on figures, and all-sky view as the HTML preview
+- **Ctrl+Shift+S** opens the in-game galaxy panel: the same facts, face-on and edge-on figures, and all-sky view as the HTML preview. The preview also draws the local star's habitable zone and full system.
+- Unresolved galactic glow is broken into an equatorial cubemap and drawn behind AstraTerra's star billboards, so the band of light is on the sky rather than only on the preview PNG.
 - `make galaxy-preview` writes a random-seed static HTML preview (`dist/galaxy-preview.html`) and opens it. Pass `SEED=42` to pin a known test galaxy.
 - `make star-catalog` writes `dist/star-catalog.v1.json` without opening the preview.
 
@@ -31,14 +34,18 @@ against the local stellar density inside those horizons, so it follows the locat
 Earth sees roughly 9,100 stars at magnitude 6.5, which is the calibration anchor. Where the sky is
 crowded the render budget runs out before the eye does, so the catalog becomes a brightest-first
 slice and the remainder stays as unresolved glow in the Milky Way band -- which is what that band
-physically is. Sampling a world costs 8-18 ms, once, when the placement arrives.
+physically is. Sampling runs once on the server when the save is authored (or when an older save
+is loaded without a stored catalog), then the catalog is written next to the placement. Clients
+never resample.
 
 ## How the sky reaches AstraTerra
 
 AstraTerra loads its shipped Earth catalog from an asset in `AssetsLoaded`, which is long before a
 client knows which world it is joining. So AstraExtera lets that load happen, then calls
-`AstraTerraModSystem.ReplaceStarCatalog` once the server's placement packet arrives, which swaps the
-catalog and drops AstraTerra's cached star projections. That seam lives in AstraTerra; AstraExtera
+`AstraTerraModSystem.ReplaceStarCatalog` once the server's sky packet arrives, then
+`ReplacePlanetCatalog`, `ReplaceCometCatalog` and `ReplaceMeteorShowers` for the authored
+wanderers. The packet already includes those stored catalogs; the client does not run the
+sampler. That seam lives in AstraTerra; AstraExtera
 compiles against it, preferring a sibling `astra_terra` checkout and falling back to the installed
 mod (override with `ASTRA_TERRA`).
 
@@ -46,12 +53,19 @@ Earth's guide groups, sky cultures and deep-sky objects are all keyed to Earth's
 positions, so they are replaced with empty sets rather than pointed at unrelated stars. Regenerating
 deep-sky objects from the galaxy model is still open.
 
+Companion planets are the bodies already placed in the local system, on Keplerian tracks around this
+star. Comets are leftover ice the shepherd giant scattered, with authored return periods and a track
+across this world's sky. Each comet leaves a meteor shower where its debris meets the observer's
+orbit; a Halley-type comet leaves both nodes. Sibling moons of a habitable moon stay off the planet
+catalog: AstraTerra's ephemeris is heliocentric, and those moons would collapse onto the parent.
+
 ## Constellations
 
 Catalog ids are assigned by brightness rank, so id 1 is always the world's brightest star. A player's
-constellation is stored by AstraTerra as edges between ids, so those ids are a save contract: the same
-seed must always number the same stars. That holds while the sampler and `GalaxyPlacement`
-schema version are unchanged, which is why the schema version is what gates regeneration.
+constellation is stored by AstraTerra as edges between ids, so those ids are a save contract: the
+server samples the catalog once and stores it. Clients render that list, which is why a later
+sampler change does not scramble figures on an existing world. Regenerating the galaxy itself still
+follows the `GalaxyPlacement` schema version.
 
 `guide-stars.v1.json` is exported empty on purpose. A procedurally authored sky inherits no
 constellations; the brightest 58 stars are flagged as guides to serve as naming anchors, and the
