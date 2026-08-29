@@ -5,9 +5,10 @@ namespace AstraExtera.Galaxy;
 
 public static class GalaxyDebugHtml
 {
-    public static string Render(GalaxyPlacement placement, StarField? stars = null)
+    public static string Render(GalaxyPlacement placement, StarField? stars = null, LocalSystemSky? localSky = null)
     {
         var starField = stars ?? StarFieldSampler.Sample(placement);
+        var wanderers = localSky ?? LocalSystemSky.Author(placement);
         var title = GalaxyFacts.Title(placement);
         var lede = GalaxyFacts.Lede(placement);
 
@@ -36,12 +37,41 @@ public static class GalaxyDebugHtml
         html.AppendLine("</section>");
         html.AppendLine("<section class=\"sky\">");
         html.AppendLine($"<figure><figcaption>{Escape(GalaxySkyView.Caption(placement))}</figcaption>");
-        html.AppendLine($"<img id=\"milky-way-sky\" alt=\"Host galaxy on the sky from this world\" src=\"{GalaxySkyView.RenderPngDataUri(placement, starField)}\">");
-        html.AppendLine("<p class=\"axis\">longitude −180° · nucleus at 0° · +180° · latitude +90° (top) to −90° (bottom)</p>");
+        html.AppendLine("<div class=\"sky-stack\">");
+        var glow = GalaxySkyView.RenderGlowRgb(placement);
+        html.AppendLine($"<img id=\"milky-way-glow\" alt=\"Unresolved host-galaxy glow\" src=\"data:image/png;base64,{Convert.ToBase64String(RgbPng.Encode(GalaxySkyView.Width, GalaxySkyView.Height, glow))}\">");
+        html.AppendLine($"<img id=\"milky-way-stars\" alt=\"Resolved stars\" src=\"{GalaxySkyView.RenderStarOverlayPngDataUri(starField)}\">");
+        html.AppendLine("</div>");
+        html.AppendLine("<p class=\"axis\">longitude -180deg · nucleus at 0deg · +180deg · latitude +90deg (top) to -90deg (bottom). Glow is the background; stars sit on top.</p>");
+        html.AppendLine("</figure>");
+        html.AppendLine("<figure><figcaption>Glow broken into an equatorial cubemap for the skybox</figcaption>");
+        html.AppendLine("<div class=\"cubemap\">");
+        var equatorial = GalaxySkyView.ReprojectToEquatorial(glow, placement.Orientation);
+        var faces = SkyCubemap.FromEquirectangular(equatorial, GalaxySkyView.Width, GalaxySkyView.Height);
+        for (var face = 0; face < faces.Count; face++)
+        {
+            html.AppendLine("<div>");
+            html.AppendLine($"<img id=\"{SkyCubemap.FaceHtmlId((SkyCubeFace)face)}\" alt=\"{Escape(SkyCubemap.FaceLabel((SkyCubeFace)face))}\" src=\"{GalaxySkyView.RenderCubemapFacePngDataUri(faces[face], SkyCubemap.FaceSize)}\">");
+            html.AppendLine($"<p>{Escape(SkyCubemap.FaceLabel((SkyCubeFace)face))}</p>");
+            html.AppendLine("</div>");
+        }
+
+        html.AppendLine("</div>");
+        html.AppendLine("<p class=\"axis\">Six cube faces sampled from the equatorial glow. +Z is this world's celestial north pole.</p>");
+        html.AppendLine("</figure>");
+        html.AppendLine("</section>");
+        html.AppendLine("<section class=\"system\">");
+        html.AppendLine("<figure><figcaption>Habitable zone</figcaption>");
+        html.AppendLine(LocalSystemSvg.RenderHabitableZone(placement));
+        html.AppendLine("<p class=\"axis\">Fitted to the liquid-water belt. The marked body is this save's world.</p>");
+        html.AppendLine("</figure>");
+        html.AppendLine("<figure><figcaption>Full system</figcaption>");
+        html.AppendLine(LocalSystemSvg.RenderFullSystem(placement));
+        html.AppendLine("<p class=\"axis\">Fitted to the outermost planet. Marker sizes are not radii.</p>");
         html.AppendLine("</figure>");
         html.AppendLine("</section>");
         html.AppendLine("<section class=\"facts\">");
-        foreach (var section in GalaxyFacts.Describe(placement, starField))
+        foreach (var section in GalaxyFacts.Describe(placement, starField, wanderers))
         {
             html.AppendLine($"<h2>{Escape(section.Heading)}</h2>");
             html.AppendLine("<dl>");
@@ -75,11 +105,17 @@ public static class GalaxyDebugHtml
         h2 { margin: 28px 0 12px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
         .lede { margin: 0; max-width: 62ch; color: var(--muted); }
         .figures { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr); gap: 24px; margin: 32px 0; align-items: start; }
+        .system { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin: 0 0 32px; align-items: start; }
         figure { margin: 0; }
         figcaption { margin: 0 0 8px; color: var(--muted); font-size: 13px; }
         svg { display: block; width: 100%; height: auto; border: 1px solid var(--line); }
         .sky { margin: 0 0 32px; }
-        .sky img { display: block; width: 100%; height: auto; border: 1px solid var(--line); background: #070b14; }
+        .sky-stack { position: relative; border: 1px solid var(--line); background: #070b14; }
+        .sky-stack img { display: block; width: 100%; height: auto; border: 0; }
+        .sky-stack #milky-way-stars { position: absolute; inset: 0; mix-blend-mode: screen; pointer-events: none; }
+        .cubemap { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+        .cubemap img { display: block; width: 100%; height: auto; border: 1px solid var(--line); background: #070b14; }
+        .cubemap p { margin: 6px 0 0; color: var(--muted); font-size: 11px; }
         .axis { margin: 8px 0 0; color: var(--muted); font-size: 12px; }
         dl { margin: 0; display: grid; gap: 10px; }
         dl div { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
@@ -87,6 +123,8 @@ public static class GalaxyDebugHtml
         dd { margin: 0; }
         @media (max-width: 840px) {
           .figures { grid-template-columns: 1fr; }
+          .system { grid-template-columns: 1fr; }
+          .cubemap { grid-template-columns: repeat(3, minmax(0, 1fr)); }
           dl div { grid-template-columns: 1fr; gap: 4px; }
         }
         """;

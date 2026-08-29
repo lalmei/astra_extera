@@ -18,7 +18,11 @@ public sealed class GalaxySkyViewTests
         Assert.Contains("Habitable zone", html, StringComparison.Ordinal);
         Assert.Contains("Surface gravity", html, StringComparison.Ordinal);
         Assert.Contains("Bulk iron", html, StringComparison.Ordinal);
-        Assert.Contains("id=\"milky-way-sky\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"milky-way-glow\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"milky-way-stars\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"sky-cube-px\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"sky-cube-pz\"", html, StringComparison.Ordinal);
+        Assert.Contains("mix-blend-mode: screen", html, StringComparison.Ordinal);
         Assert.Contains("data:image/png;base64,", html, StringComparison.Ordinal);
         Assert.DoesNotContain("<script", html, StringComparison.Ordinal);
     }
@@ -60,5 +64,37 @@ public sealed class GalaxySkyViewTests
         }
 
         return sum / GalaxySkyView.Width;
+    }
+
+    [Fact]
+    public void The_Star_Overlay_Is_Black_Away_From_Stars()
+    {
+        var placement = GalaxyGenerator.Generate(42);
+        var overlay = GalaxySkyView.RenderStarOverlayRgb(StarFieldSampler.Sample(placement));
+
+        Assert.Equal(0, overlay[0] + overlay[1] + overlay[2]);
+        Assert.Contains(overlay, static channel => channel > 0);
+    }
+
+    [Fact]
+    public void The_Equatorial_Glow_Puts_The_Nucleus_Where_The_Orientation_Says()
+    {
+        var placement = GalaxyGenerator.Generate(42);
+        var galactic = GalaxySkyView.RenderGlowRgb(placement);
+        var equatorial = GalaxySkyView.ReprojectToEquatorial(galactic, placement.Orientation);
+        var (nucleusRa, nucleusDec) = placement.Orientation.ToEquatorial(0.0, 0.0);
+        var (poleRa, poleDec) = placement.Orientation.ToEquatorial(0.0, Math.PI / 2.0);
+        var nucleus = SampleEquatorial(equatorial, nucleusRa, nucleusDec);
+        var pole = SampleEquatorial(equatorial, poleRa, poleDec);
+
+        Assert.True(
+            nucleus.Red + nucleus.Green + nucleus.Blue > pole.Red + pole.Green + pole.Blue + 40,
+            "the nucleus should be brighter than the galactic pole on the equatorial map");
+    }
+
+    private static (byte Red, byte Green, byte Blue) SampleEquatorial(byte[] rgb, double rightAscension, double declination)
+    {
+        var (u, v) = EquirectangularSampler.EquatorialUv(rightAscension, declination);
+        return EquirectangularSampler.Sample(rgb, GalaxySkyView.Width, GalaxySkyView.Height, u, v);
     }
 }

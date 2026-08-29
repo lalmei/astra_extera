@@ -16,12 +16,12 @@ namespace AstraExtera.Client;
 public static class GalaxyPanelPainter
 {
     public const double DesignWidth = 1060.0;
-    public const double DesignHeight = 620.0;
+    public const double DesignHeight = 780.0;
 
     private const double FactsX = 14.0;
     private const double FactsY = 6.0;
     private const double FactsWidth = 496.0;
-    private const double FactsHeight = 608.0;
+    private const double FactsHeight = 768.0;
     private const double TermWidth = 126.0;
 
     private const double SkyX = 524.0;
@@ -42,7 +42,13 @@ public static class GalaxyPanelPainter
     private static readonly double[] Muted = [0.545, 0.592, 0.671, 1.0];
     private static readonly double[] Gold = [0.831, 0.627, 0.090, 1.0];
 
-    public static void Paint(Context ctx, ElementBounds bounds, GalaxyPlacement placement, StarField starField, byte[] sky)
+    public static void Paint(
+        Context ctx,
+        ElementBounds bounds,
+        GalaxyPlacement placement,
+        StarField starField,
+        byte[] sky,
+        LocalSystemSky? localSky = null)
     {
         ArgumentNullException.ThrowIfNull(ctx);
         ArgumentNullException.ThrowIfNull(bounds);
@@ -53,7 +59,7 @@ public static class GalaxyPanelPainter
         ctx.Save();
         ctx.Scale(bounds.InnerWidth / DesignWidth, bounds.InnerHeight / DesignHeight);
 
-        PaintFacts(ctx, placement, starField);
+        PaintFacts(ctx, placement, starField, localSky);
         PaintSky(ctx, sky);
         PaintFaceOn(ctx, placement);
         PaintEdgeOn(ctx, placement);
@@ -61,7 +67,11 @@ public static class GalaxyPanelPainter
         ctx.Restore();
     }
 
-    private static void PaintFacts(Context ctx, GalaxyPlacement placement, StarField starField)
+    private static void PaintFacts(
+        Context ctx,
+        GalaxyPlacement placement,
+        StarField starField,
+        LocalSystemSky? localSky)
     {
         ctx.Save();
         ctx.Rectangle(FactsX, FactsY, FactsWidth, FactsHeight);
@@ -75,7 +85,7 @@ public static class GalaxyPanelPainter
         var lede = CairoFont.WhiteSmallText().WithFontSize(11f).WithColor(Muted);
         y += DrawWrapped(ctx, lede, GalaxyFacts.Lede(placement), FactsX, y, FactsWidth, 14.0) + 10.0;
 
-        foreach (var section in GalaxyFacts.Describe(placement, starField))
+        foreach (var section in GalaxyFacts.Describe(placement, starField, localSky))
         {
             heading.SetupContext(ctx);
             ctx.MoveTo(FactsX, y);

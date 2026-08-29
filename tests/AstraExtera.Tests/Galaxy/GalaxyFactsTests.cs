@@ -13,7 +13,10 @@ public sealed class GalaxyFactsTests
 
         Assert.Equal("AstraExtera galaxy preview - seed 42", GalaxyFacts.Title(placement));
         Assert.Equal("Host galaxy - seed 42", GalaxyFacts.PanelTitle(placement));
-        Assert.Equal(["Galaxy", "Observer", "Earth analog", "Visible sky"], sections.Select(static s => s.Heading));
+        Assert.Equal(["Galaxy", "Observer", "Local system", "Earth analog", "Visible sky"], sections.Select(static s => s.Heading));
+        Assert.Equal(
+            ["Galaxy", "Observer", "Local system", "Earth analog", "Visible sky", "Wanderers"],
+            GalaxyFacts.Describe(GalaxySky.Author(42)).Select(static s => s.Heading));
         Assert.All(sections, static section =>
         {
             Assert.NotEmpty(section.Rows);
@@ -37,7 +40,7 @@ public sealed class GalaxyFactsTests
     public void Values_Stay_Inside_Latin1_So_The_Game_Font_Can_Draw_Them(int seed)
     {
         var placement = GalaxyGenerator.Generate(seed);
-        var sections = GalaxyFacts.Describe(placement, StarFieldSampler.Sample(placement));
+        var sections = GalaxyFacts.Describe(GalaxySky.Author(placement));
 
         foreach (var row in sections.SelectMany(static section => section.Rows))
         {

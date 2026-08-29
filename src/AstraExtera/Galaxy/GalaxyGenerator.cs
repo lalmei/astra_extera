@@ -30,7 +30,8 @@ public static class GalaxyGenerator
         var worldKind = rng.NextBool(0.28)
             ? ObserverWorldKind.TerrestrialMoon
             : ObserverWorldKind.TerrestrialPlanet;
-        var world = EarthAnalog.Sample(ref rng);
+        var bulk = EarthAnalog.SampleBulk(ref rng);
+        var system = LocalSystem.Sample(ref rng, worldKind, bulk, out var world);
         var orientation = CelestialOrientation.Sample(ref rng);
 
         return new GalaxyPlacement(
@@ -40,6 +41,7 @@ public static class GalaxyGenerator
             location,
             worldKind,
             world,
+            system,
             orientation);
     }
 

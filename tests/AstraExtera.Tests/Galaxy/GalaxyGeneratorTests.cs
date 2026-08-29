@@ -41,6 +41,7 @@ public sealed class GalaxyGeneratorTests
                 placement.Galaxy.InnerHabitableRadiusKpc,
                 placement.Galaxy.OuterHabitableRadiusKpc);
             Assert.True(EarthAnalog.IsEarthlike(placement.World), $"seed {seed} was not an Earth analog");
+            Assert.True(placement.System.IsHabitable, $"seed {seed} local system failed: {string.Join("; ", placement.System.Checks.Where(static c => !c.Passed).Select(static c => c.Detail))}");
         }
     }
 

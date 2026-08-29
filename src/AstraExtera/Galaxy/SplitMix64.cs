@@ -33,6 +33,20 @@ public struct SplitMix64
     public bool NextBool(double probability)
         => NextUnit() < probability;
 
+    public int NextInt(int maxExclusive)
+        => NextInt(0, maxExclusive);
+
+    public int NextInt(int minInclusive, int maxExclusive)
+    {
+        var span = maxExclusive - minInclusive;
+        if (span <= 0)
+        {
+            return minInclusive;
+        }
+
+        return minInclusive + (int)(NextUnit() * span);
+    }
+
     public double NextGaussian(double mean, double stdDev)
     {
         var u1 = Math.Max(double.Epsilon, NextUnit());

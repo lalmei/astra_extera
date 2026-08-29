@@ -17,18 +17,35 @@ public sealed record GalaxyFactSection(string Heading, IReadOnlyList<GalaxyFact>
 /// </summary>
 public static class GalaxyFacts
 {
-    public static IReadOnlyList<GalaxyFactSection> Describe(GalaxyPlacement placement, StarField starField)
+    public static IReadOnlyList<GalaxyFactSection> Describe(
+        GalaxyPlacement placement,
+        StarField starField,
+        LocalSystemSky? localSky = null)
     {
         ArgumentNullException.ThrowIfNull(placement);
         ArgumentNullException.ThrowIfNull(starField);
 
-        return
-        [
-            new GalaxyFactSection("Galaxy", GalaxyRows(placement)),
-            new GalaxyFactSection("Observer", ObserverRows(placement)),
-            new GalaxyFactSection("Earth analog", WorldRows(placement)),
-            new GalaxyFactSection("Visible sky", SkyRows(placement, starField))
-        ];
+        var sections = new List<GalaxyFactSection>
+        {
+            new("Galaxy", GalaxyRows(placement)),
+            new("Observer", ObserverRows(placement)),
+            new("Local system", SystemRows(placement)),
+            new("Earth analog", WorldRows(placement)),
+            new("Visible sky", SkyRows(placement, starField))
+        };
+
+        if (localSky is not null)
+        {
+            sections.Add(new GalaxyFactSection("Wanderers", WandererRows(localSky)));
+        }
+
+        return sections;
+    }
+
+    public static IReadOnlyList<GalaxyFactSection> Describe(GalaxySky sky)
+    {
+        ArgumentNullException.ThrowIfNull(sky);
+        return Describe(sky.Placement, sky.StarField, sky.LocalSky);
     }
 
     public static string Title(GalaxyPlacement placement)
@@ -97,6 +114,52 @@ public static class GalaxyFacts
         ];
     }
 
+    private static List<GalaxyFact> SystemRows(GalaxyPlacement placement)
+    {
+        var system = placement.System;
+        var rows = new List<GalaxyFact>
+        {
+            new("Star", $"{system.StarClassLabel}, {F(system.StarMassSolar)} Msun, {F(system.StarRadiusSolar)} Rsun, {F(system.LuminositySolar)} Lsun"),
+            new("Lifespan", $"{F(system.StarLifespanGyr)} Gyr"),
+            new("Liquid-water belt", $"{F(system.HabitableZoneInnerAu)} - {F(system.HabitableZoneOuterAu)} AU"),
+            new(
+                placement.WorldKind == ObserverWorldKind.TerrestrialMoon ? "Parent orbit" : "Orbit",
+                $"{F(system.OrbitalDistanceAu)} AU, year {F(system.OrbitalPeriodDays)} d"),
+            new("Climate", $"albedo {F(system.BondAlbedo)}, greenhouse {F(system.GreenhouseDeltaK)} K"),
+            new("Snow line", $"{F(system.SnowLineAu)} AU")
+        };
+
+        if (placement.WorldKind == ObserverWorldKind.TerrestrialMoon)
+        {
+            rows.Add(new GalaxyFact("Parent giant", $"{F(system.ParentGiantMassEarth ?? 0.0)} Mearth"));
+            rows.Add(new GalaxyFact(
+                "Moon orbit",
+                $"{F(system.MoonOrbitalDistanceEarthRadii ?? 0.0)} Rearth, tidal day {F(system.MoonDayLengthDays ?? 0.0)} d, Roche {F(system.RocheLimitEarthRadii ?? 0.0)} Rearth"));
+            if (system.Moons.Length > 1)
+            {
+                rows.Add(new GalaxyFact("Moon family", $"{system.Moons.Length} moons, habitable is #{system.HabitableMoonIndex}"));
+            }
+        }
+
+        foreach (var body in system.Companions)
+        {
+            rows.Add(new GalaxyFact(
+                CompanionTerm(body.Role),
+                $"{F(body.SemiMajorAxisAu)} AU, {F(body.MassEarth)} Mearth, year {F(body.OrbitalPeriodDays)} d"));
+        }
+
+        return rows;
+    }
+
+    private static string CompanionTerm(CompanionRole role)
+        => role switch
+        {
+            CompanionRole.InnerRocky => "Inner rocky",
+            CompanionRole.ShepherdGiant => "Shepherd giant",
+            CompanionRole.OuterIceGiant => "Ice giant",
+            _ => role.ToString()
+        };
+
     private static List<GalaxyFact> WorldRows(GalaxyPlacement placement)
     {
         var world = placement.World;
@@ -108,7 +171,7 @@ public static class GalaxyFacts
             new GalaxyFact("Bulk iron", $"{F(world.BulkIronMassFraction * 100.0)} wt% (Earth 32.1)"),
             new GalaxyFact("Core mass", $"{F(world.CoreMassFraction * 100.0)} % (Earth 32.5)"),
             new GalaxyFact("Mean density", $"{F(world.MeanDensityEarth)} rho_earth"),
-            new GalaxyFact("Surface temperature", $"{F(world.SurfaceTemperatureK)} K (placeholder climate; may change)"),
+            new GalaxyFact("Surface temperature", $"{F(world.SurfaceTemperatureK)} K"),
             new GalaxyFact("Equilibrium temperature", $"{F(world.EquilibriumTemperatureK)} K")
         ];
     }
@@ -137,6 +200,34 @@ public static class GalaxyFacts
                 "Brightest star",
                 $"m {F(brightest.ApparentMagnitude)}, M {F(brightest.AbsoluteMagnitude)}, {F(brightest.DistancePc)} pc, A_V {F(brightest.ExtinctionMagnitudes)}"));
             rows.Add(new GalaxyFact("Median distance", $"{F(MedianDistancePc(starField))} pc"));
+        }
+
+        return rows;
+    }
+
+    private static List<GalaxyFact> WandererRows(LocalSystemSky localSky)
+    {
+        var rows = new List<GalaxyFact>
+        {
+            new(
+                "Planets",
+                localSky.Planets.Count == 0
+                    ? "none"
+                    : string.Join(", ", localSky.Planets.Select(static planet =>
+                        $"{planet.DisplayName} ({planet.Orbit.SemiMajorAxisAu.ToString("0.##", CultureInfo.InvariantCulture)} AU)")))
+        };
+
+        foreach (var comet in localSky.Comets)
+        {
+            var showers = localSky.Showers.Where(shower => shower.ParentCometId == comet.Id)
+                .Select(static shower => shower.DisplayName)
+                .ToArray();
+            var showerText = showers.Length == 0
+                ? "no shower"
+                : string.Join(", ", showers);
+            rows.Add(new GalaxyFact(
+                comet.DisplayName,
+                $"period {comet.PeriodYears.ToString("0.#", CultureInfo.InvariantCulture)} yr, peak m {comet.PeakMagnitude.ToString("0.#", CultureInfo.InvariantCulture)}; {showerText}"));
         }
 
         return rows;

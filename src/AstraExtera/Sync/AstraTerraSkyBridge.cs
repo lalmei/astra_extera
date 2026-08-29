@@ -6,20 +6,14 @@ using Vintagestory.API.Client;
 namespace AstraExtera.Sync;
 
 /// <summary>
-/// Hands this world's procedural star catalog to AstraTerra's sky renderer.
+/// Hands this world's stored sky to AstraTerra: stars, companion planets, comets, and the meteor
+/// showers those comets leave on the observer's orbit.
 /// <para>
-/// AstraTerra loads its shipped Earth catalog from an asset before a client knows which world it is
-/// joining, so the swap can only happen once the server's galaxy placement has arrived. Earth's
+/// AstraTerra loads its shipped Earth catalogs from assets before a client knows which world it is
+/// joining, so the swap can only happen once the server's galaxy packet has arrived. Earth's
 /// constellation figures, guide groups and deep-sky objects are all keyed to Earth's own star ids
 /// and sky positions, so none of them carry over; they are replaced with empty sets rather than
-/// pointed at unrelated stars.
-/// </para>
-/// <para>
-/// Earth's solar system goes the same way. Its planets have orbits authored around this Sun, its
-/// comets are this system's, and its meteor showers are named for the constellations their radiants
-/// sit in -- Perseids for Perseus, Leonids for Leo -- so under a sky with no inherited figures a
-/// radiant is named for something nobody can point to. AstraExtera does not generate a planetary
-/// system yet, so it says the sky has none rather than leaving the wrong one up.
+/// pointed at unrelated stars. Earth's planets, comets and showers are replaced the same way.
 /// </para>
 /// </summary>
 public sealed class AstraTerraSkyBridge
@@ -32,9 +26,10 @@ public sealed class AstraTerraSkyBridge
         this.api = api;
     }
 
-    public void Publish(GalaxyPlacement placement)
+    public void Publish(GalaxySky sky)
     {
-        if (publishedSeed == placement.WorldSeed)
+        ArgumentNullException.ThrowIfNull(sky);
+        if (publishedSeed == sky.Placement.WorldSeed)
         {
             return;
         }
@@ -46,9 +41,8 @@ public sealed class AstraTerraSkyBridge
             return;
         }
 
-        var field = StarFieldSampler.Sample(placement);
         var catalog = new StarCatalog(
-            StarCatalogExport.BuildEntries(placement, field)
+            StarCatalogExport.BuildEntries(sky.Placement, sky.StarField)
                 .Select(entry => new StarCatalogEntry(
                     entry.Hip,
                     entry.RightAscensionDeg,
@@ -67,20 +61,21 @@ public sealed class AstraTerraSkyBridge
             return;
         }
 
-        // Ordering matters: AstraTerra registers its creative bookshelf in AssetsFinalize, and the
-        // Star Catalog, Zodiac and Planet Catalog books are all skipped when the catalog they would
-        // describe is absent. Publishing on the placement packet lands before that.
-        astraTerra.ReplacePlanetCatalog(null);
-        astraTerra.ReplaceCometCatalog(null);
-        astraTerra.ReplaceMeteorShowers([]);
+        astraTerra.ReplacePlanetCatalog(LocalSystemSkyExport.ToPlanetCatalog(sky.LocalSky));
+        astraTerra.ReplaceCometCatalog(LocalSystemSkyExport.ToCometCatalog(sky.LocalSky));
+        astraTerra.ReplaceMeteorShowers(LocalSystemSkyExport.ToMeteorShowers(sky.LocalSky));
 
-        publishedSeed = placement.WorldSeed;
+        publishedSeed = sky.Placement.WorldSeed;
         api.Logger.Event(
-            "AstraExtera published the procedural sky: stars={0}; nakedEyeStars={1:0}; limit=m{2:0.00}; effective=m{3:0.00}; pole={4:0.0}deg from the galactic pole; no planets, comets or meteor showers.",
+            "AstraExtera published the stored sky: stars={0}; nakedEyeStars={1:0}; planets={2}; comets={3}; showers={4}; pole={5:0.0}deg from the galactic pole; host={6} {7:0.00} Msun at {8:0.00} AU.",
             catalog.Stars.Count,
-            field.ExpectedVisibleCount,
-            field.LimitingMagnitude,
-            field.EffectiveLimitingMagnitude,
-            placement.Orientation.PoleTiltFromGalacticPoleDeg);
+            sky.StarField.ExpectedVisibleCount,
+            sky.LocalSky.Planets.Count,
+            sky.LocalSky.Comets.Count,
+            sky.LocalSky.Showers.Count,
+            sky.Placement.Orientation.PoleTiltFromGalacticPoleDeg,
+            sky.Placement.System.StarClassLabel,
+            sky.Placement.System.StarMassSolar,
+            sky.Placement.System.OrbitalDistanceAu);
     }
 }

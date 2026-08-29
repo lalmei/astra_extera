@@ -32,9 +32,9 @@ public sealed record StarCatalogExportOptions
 /// <para>
 /// Catalog ids are assigned by brightness rank, so id 1 is always this world's brightest star.
 /// Because a player's constellation is stored as edges between ids, those ids are the save's
-/// contract: the same world seed must always produce the same numbering. That holds as long as the
-/// sampler and <see cref="GalaxyPlacement.CurrentSchemaVersion"/> are unchanged, which is why the
-/// schema version is what gates a regeneration.
+/// contract: the server samples the catalog once and stores it, and clients render that list
+/// rather than drawing another. Sampler changes therefore do not scramble figures on an existing
+/// save. Regenerating the galaxy still follows <see cref="GalaxyPlacement.CurrentSchemaVersion"/>.
 /// </para>
 /// </summary>
 public static class StarCatalogExport

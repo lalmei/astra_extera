@@ -24,17 +24,18 @@ for (var i = 0; i < args.Length; i++)
 }
 
 var chosenSeed = seed ?? Random.Shared.Next(1, int.MaxValue);
-var placement = GalaxyGenerator.Generate(chosenSeed);
+var samplingTimer = System.Diagnostics.Stopwatch.StartNew();
+var authored = GalaxySky.Author(chosenSeed);
+samplingTimer.Stop();
+var placement = authored.Placement;
+var sky = authored.StarField;
 var directory = Path.GetDirectoryName(output);
 if (!string.IsNullOrEmpty(directory))
 {
     Directory.CreateDirectory(directory);
 }
 
-var samplingTimer = System.Diagnostics.Stopwatch.StartNew();
-var sky = StarFieldSampler.Sample(placement);
-samplingTimer.Stop();
-File.WriteAllText(output, GalaxyDebugHtml.Render(placement, sky));
+File.WriteAllText(output, GalaxyDebugHtml.Render(placement, sky, authored.LocalSky));
 
 var catalogPath = Path.Combine(
     Path.GetDirectoryName(output) ?? ".",
@@ -44,7 +45,7 @@ File.WriteAllText(
     Path.Combine(Path.GetDirectoryName(output) ?? ".", "guide-stars.v1.json"),
     StarCatalogExport.EmptyGuideGroupsJson());
 
-Console.WriteLine(GalaxyPlacementCodec.Describe(placement));
+Console.WriteLine(GalaxyPlacementCodec.Describe(authored));
 Console.WriteLine(
     $"Visible sky: naked-eye stars={sky.ExpectedVisibleCount:N0}; drawn={sky.SampledCount:N0}; " +
     $"catalog={sky.Stars.Count:N0}; brightest m={(sky.Stars.Count > 0 ? sky.Stars[0].ApparentMagnitude : double.NaN):0.00}; " +

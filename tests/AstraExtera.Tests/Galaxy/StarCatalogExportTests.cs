@@ -41,18 +41,19 @@ public sealed class StarCatalogExportTests
     }
 
     /// <summary>
-    /// Ids are handed out by position in the sorted field, so a world reloaded from the save has to
-    /// number the same stars the same way as the world that first generated it.
+    /// Ids are handed out by position in the stored field, so a world reloaded from the save has to
+    /// keep the same catalog the server first sampled, not draw a new one.
     /// </summary>
     [Fact]
     public void Ids_Survive_The_Save_Round_Trip()
     {
-        var placement = GalaxyGenerator.Generate(42);
-        var restored = GalaxyPlacementCodec.FromUtf8(GalaxyPlacementCodec.ToUtf8(placement));
+        var sky = GalaxySky.Author(42);
+        var restoredPlacement = GalaxyPlacementCodec.FromUtf8(GalaxyPlacementCodec.ToUtf8(sky.Placement));
+        var restoredStars = StarFieldCodec.FromBytes(StarFieldCodec.ToBytes(sky.StarField));
 
         Assert.Equal(
-            StarCatalogExport.BuildEntries(placement, StarFieldSampler.Sample(placement)),
-            StarCatalogExport.BuildEntries(restored, StarFieldSampler.Sample(restored)));
+            StarCatalogExport.BuildEntries(sky.Placement, sky.StarField),
+            StarCatalogExport.BuildEntries(restoredPlacement, restoredStars));
     }
 
     [Fact]

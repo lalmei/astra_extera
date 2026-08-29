@@ -2,7 +2,8 @@ namespace AstraExtera.Galaxy;
 
 /// <summary>
 /// Tight Earth analog for the playable world. Vintage Story geology and gait assume ~1 g and
-/// an iron-bearing crust; temperature is held near Earth for now and can be relaxed later.
+/// an iron-bearing crust. Size and iron are sampled here; surface temperature is filled in by
+/// the local star once the world sits in its habitable zone.
 /// </summary>
 public static class EarthAnalog
 {
@@ -24,7 +25,8 @@ public static class EarthAnalog
 
     public const int MaxAttempts = 64;
 
-    public static EarthAnalogWorld Sample(ref SplitMix64 rng)
+    /// <summary>Size, gravity and iron only. Temperature is Earth's until climate is applied.</summary>
+    public static EarthAnalogWorld SampleBulk(ref SplitMix64 rng)
     {
         for (var attempt = 0; attempt < MaxAttempts; attempt++)
         {
@@ -34,8 +36,6 @@ public static class EarthAnalog
             var densityEarth = 1.0 + 0.85 * ((bulkIron - EarthBulkIronMassFraction) / EarthBulkIronMassFraction);
             var massEarth = densityEarth * radiusEarth * radiusEarth * radiusEarth;
             var gravityG = massEarth / (radiusEarth * radiusEarth);
-            var surfaceTemperatureK = rng.NextGaussian(EarthSurfaceTemperatureK, 4.0);
-            var equilibriumTemperatureK = rng.NextGaussian(EarthEquilibriumTemperatureK, 3.0);
 
             var world = new EarthAnalogWorld(
                 radiusEarth,
@@ -44,10 +44,10 @@ public static class EarthAnalog
                 gravityG,
                 bulkIron,
                 coreMassFraction,
-                equilibriumTemperatureK,
-                surfaceTemperatureK);
+                EarthEquilibriumTemperatureK,
+                EarthSurfaceTemperatureK);
 
-            if (IsEarthlike(world))
+            if (IsEarthlikeBulk(world))
             {
                 return world;
             }
@@ -56,13 +56,44 @@ public static class EarthAnalog
         return Fallback();
     }
 
-    public static bool IsEarthlike(EarthAnalogWorld world)
+    public static EarthAnalogWorld Sample(ref SplitMix64 rng)
+    {
+        var bulk = SampleBulk(ref rng);
+        for (var attempt = 0; attempt < MaxAttempts; attempt++)
+        {
+            var world = WithClimate(
+                bulk,
+                rng.NextGaussian(EarthEquilibriumTemperatureK, 3.0),
+                rng.NextGaussian(EarthSurfaceTemperatureK, 4.0));
+            if (IsEarthlike(world))
+            {
+                return world;
+            }
+        }
+
+        return WithClimate(bulk, EarthEquilibriumTemperatureK, EarthSurfaceTemperatureK);
+    }
+
+    public static EarthAnalogWorld WithClimate(
+        EarthAnalogWorld bulk,
+        double equilibriumTemperatureK,
+        double surfaceTemperatureK)
+        => bulk with
+        {
+            EquilibriumTemperatureK = equilibriumTemperatureK,
+            SurfaceTemperatureK = surfaceTemperatureK
+        };
+
+    public static bool IsEarthlikeBulk(EarthAnalogWorld world)
         => world.RadiusEarth is >= MinRadiusEarth and <= MaxRadiusEarth
            && world.SurfaceGravityG is >= MinSurfaceGravityG and <= MaxSurfaceGravityG
            && world.BulkIronMassFraction is >= MinBulkIronMassFraction and <= MaxBulkIronMassFraction
            && world.CoreMassFraction is >= MinCoreMassFraction and <= MaxCoreMassFraction
-           && world.SurfaceTemperatureK is >= MinSurfaceTemperatureK and <= MaxSurfaceTemperatureK
            && world.CoreMassFraction <= world.BulkIronMassFraction + 0.04;
+
+    public static bool IsEarthlike(EarthAnalogWorld world)
+        => IsEarthlikeBulk(world)
+           && world.SurfaceTemperatureK is >= MinSurfaceTemperatureK and <= MaxSurfaceTemperatureK;
 
     public static EarthAnalogWorld Fallback()
         => new(

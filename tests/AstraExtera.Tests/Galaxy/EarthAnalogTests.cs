@@ -19,4 +19,18 @@ public sealed class EarthAnalogTests
             Assert.InRange(world.SurfaceTemperatureK, 275.0, 300.0);
         }
     }
+
+    [Fact]
+    public void Sampled_Bulk_Worlds_Stay_Near_Earth_Radius_Gravity_And_Iron()
+    {
+        var rng = new SplitMix64(54321);
+        for (var i = 0; i < 80; i++)
+        {
+            var world = EarthAnalog.SampleBulk(ref rng);
+            Assert.True(EarthAnalog.IsEarthlikeBulk(world));
+            Assert.InRange(world.RadiusEarth, 0.90, 1.10);
+            Assert.InRange(world.SurfaceGravityG, 0.90, 1.10);
+            Assert.InRange(world.BulkIronMassFraction, 0.28, 0.36);
+        }
+    }
 }

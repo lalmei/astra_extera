@@ -1,4 +1,5 @@
 using AstraExtera.Galaxy;
+using AstraExtera.Sync;
 using AstraTerra.Astronomy;
 using Xunit;
 
@@ -85,5 +86,57 @@ public sealed class AstraTerraHandoverTests
         }
 
         Assert.Equal(entries.Count, projectedSomewhere);
+    }
+
+    [Fact]
+    public void Exported_Planets_Fill_Every_Field_AstraTerra_Reads()
+    {
+        var sky = GalaxySky.Author(42);
+        var catalog = LocalSystemSkyExport.ToPlanetCatalog(sky.LocalSky);
+
+        Assert.Equal(sky.LocalSky.Planets.Count, catalog.Planets.Count);
+        Assert.Equal(sky.LocalSky.Observer.SemiMajorAxisAu, catalog.Observer.SemiMajorAxisAu);
+        Assert.All(catalog.Planets, planet =>
+        {
+            Assert.False(string.IsNullOrWhiteSpace(planet.Id));
+            Assert.False(string.IsNullOrWhiteSpace(planet.DisplayName));
+            Assert.True(planet.Elements.SemiMajorAxisAu > 0.0);
+            Assert.True(planet.Elements.MeanLongitudeRateDegPerCentury > 0.0);
+        });
+
+        var sample = catalog.Planets[0];
+        var ephemeris = new PlanetEphemeris(sample, catalog.Observer, daysPerYear: 360);
+        var position = ephemeris.PositionAt(0.0);
+        Assert.InRange(position.RightAscensionDeg, 0.0, 360.0);
+        Assert.InRange(position.DeclinationDeg, -90.0, 90.0);
+        Assert.True(double.IsFinite(ephemeris.MagnitudeAt(0.0)));
+    }
+
+    [Fact]
+    public void Exported_Comets_And_Showers_Fill_Every_Field_AstraTerra_Reads()
+    {
+        var sky = GalaxySky.Author(42);
+        var comets = LocalSystemSkyExport.ToCometCatalog(sky.LocalSky);
+        var showers = LocalSystemSkyExport.ToMeteorShowers(sky.LocalSky);
+
+        Assert.Equal(sky.LocalSky.Comets.Count, comets.Comets.Count);
+        Assert.Equal(sky.LocalSky.Showers.Count, showers.Count);
+        Assert.All(comets.Comets, comet =>
+        {
+            Assert.True(comet.Path.Count >= 3);
+            Assert.Equal(-1.0, comet.Path[0].Phase);
+            Assert.Equal(1.0, comet.Path[^1].Phase);
+            var ephemeris = new CometEphemeris(comet, daysPerYear: 360);
+            var atPerihelion = comet.FirstPerihelionYear * 360.0;
+            var position = ephemeris.PositionAt(atPerihelion);
+            Assert.InRange(position.RightAscensionDeg, 0.0, 360.0);
+            Assert.True(ephemeris.ApparitionAt(atPerihelion).IsVisible);
+        });
+        Assert.All(showers, shower =>
+        {
+            Assert.False(string.IsNullOrWhiteSpace(shower.Id));
+            Assert.InRange(shower.PeakSolarLongitudeDeg, 0.0, 360.0);
+            Assert.True(shower.PeakZenithHourlyRate > 0.0);
+        });
     }
 }

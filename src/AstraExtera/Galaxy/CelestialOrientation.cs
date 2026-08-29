@@ -52,6 +52,29 @@ public sealed record CelestialOrientation(
         return (rightAscension * 180.0 / Math.PI, declination * 180.0 / Math.PI);
     }
 
+    /// <summary>
+    /// Inverse of <see cref="ToEquatorial"/>: an equatorial direction back into galactic longitude
+    /// and latitude, longitude 0 at the nucleus.
+    /// </summary>
+    public (double GalacticLongitudeRad, double GalacticLatitudeRad) ToGalactic(
+        double rightAscensionDeg,
+        double declinationDeg)
+    {
+        var rightAscension = rightAscensionDeg * Math.PI / 180.0;
+        var declination = declinationDeg * Math.PI / 180.0;
+        var cosDec = Math.Cos(declination);
+        var (pole, raOrigin, third) = Basis();
+        var galactic = Add(
+            Add(
+                Scale(raOrigin, cosDec * Math.Cos(rightAscension)),
+                Scale(third, cosDec * Math.Sin(rightAscension))),
+            Scale(pole, Math.Sin(declination)));
+
+        var longitude = Math.Atan2(galactic.Y, galactic.X);
+        var latitude = Math.Asin(Math.Clamp(galactic.Z, -1.0, 1.0));
+        return (longitude, latitude);
+    }
+
     private ((double X, double Y, double Z) Pole,
              (double X, double Y, double Z) RaOrigin,
              (double X, double Y, double Z) Third) Basis()

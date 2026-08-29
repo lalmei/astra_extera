@@ -31,4 +31,23 @@ public sealed class CelestialOrientationTests
         Assert.True(tilts.Distinct().Count() > 30);
         Assert.True(tilts.Max() - tilts.Min() > 30.0);
     }
+
+    [Fact]
+    public void Equatorial_And_Galactic_Round_Trip()
+    {
+        var orientation = GalaxyGenerator.Generate(42).Orientation;
+        for (var longitude = -Math.PI; longitude < Math.PI; longitude += Math.PI / 5.0)
+        {
+            for (var latitude = -Math.PI / 3.0; latitude <= Math.PI / 3.0; latitude += Math.PI / 6.0)
+            {
+                var (rightAscension, declination) = orientation.ToEquatorial(longitude, latitude);
+                var (backLongitude, backLatitude) = orientation.ToGalactic(rightAscension, declination);
+                var longitudeError = Math.Abs(Math.Atan2(
+                    Math.Sin(backLongitude - longitude),
+                    Math.Cos(backLongitude - longitude)));
+                Assert.True(longitudeError < 1e-9, $"longitude drifted by {longitudeError}");
+                Assert.True(Math.Abs(backLatitude - latitude) < 1e-9, $"latitude drifted by {backLatitude - latitude}");
+            }
+        }
+    }
 }

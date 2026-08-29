@@ -31,7 +31,19 @@ public static class GalaxyPlacementCodec
             $"|z|={Math.Abs(placement.Location.HeightPc):0} pc; " +
             $"[Fe/H]={placement.Location.MetallicityFeH:+0.00;-0.00}; " +
             $"iron={placement.CanHostIronCore}; ores={placement.CanHostOres}; " +
-            $"world={kind}; R⊕={placement.World.RadiusEarth:0.00}; g={placement.World.SurfaceGravityG:0.00}; " +
+            $"world={kind}; star={placement.System.StarClassLabel} {placement.System.StarMassSolar:0.00} Msun; " +
+            $"a={placement.System.OrbitalDistanceAu:0.00} AU; " +
+            $"Rearth={placement.World.RadiusEarth:0.00}; g={placement.World.SurfaceGravityG:0.00}; " +
             $"Fe={placement.World.BulkIronMassFraction:0.00}; T={placement.World.SurfaceTemperatureK:0} K.";
+    }
+
+    public static string Describe(GalaxySky sky)
+    {
+        ArgumentNullException.ThrowIfNull(sky);
+        return
+            $"{Describe(sky.Placement)} " +
+            $"stars={sky.StarField.Stars.Count}; nakedEye={sky.StarField.ExpectedVisibleCount:0}; " +
+            $"planets={sky.LocalSky.Planets.Count}; comets={sky.LocalSky.Comets.Count}; " +
+            $"showers={sky.LocalSky.Showers.Count}.";
     }
 }

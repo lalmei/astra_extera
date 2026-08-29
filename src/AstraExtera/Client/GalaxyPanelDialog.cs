@@ -6,28 +6,31 @@ namespace AstraExtera.Client;
 
 /// <summary>
 /// The in-game galaxy panel: this world's placement written out, with the face-on, edge-on and
-/// all-sky figures from the debug preview drawn alongside it.
+/// all-sky figures from the debug preview drawn alongside it. It uses the same dialog shell as
+/// other Vintage Story windows, so the title bar has close and movable/fixed, and a dragged
+/// position is remembered.
 /// </summary>
 /// <remarks>
-/// The star field and sky image are sampled once in the constructor and drawn from a static
-/// composition afterwards. Neither depends on anything that changes while the panel is open, and
-/// sampling a sky costs milliseconds rather than microseconds, so it has no business being on a
-/// frame path.
+/// The star field and sky image are the server-stored catalog, drawn from a static composition
+/// afterwards. Neither depends on anything that changes while the panel is open, so sampling has
+/// no business being on a frame path -- and the client does not sample at all.
 /// </remarks>
 public sealed class GalaxyPanelDialog : GuiDialog
 {
-    private const double TitleBarHeight = 31.0;
+    public const string ComposerName = "astraextera-galaxy-panel";
 
     private readonly GalaxyPlacement placement;
     private readonly StarField starField;
+    private readonly LocalSystemSky localSky;
     private readonly byte[] sky;
 
-    public GalaxyPanelDialog(ICoreClientAPI capi, GalaxyPlacement placement)
+    public GalaxyPanelDialog(ICoreClientAPI capi, GalaxySky authored)
         : base(capi)
     {
-        ArgumentNullException.ThrowIfNull(placement);
-        this.placement = placement;
-        starField = StarFieldSampler.Sample(placement);
+        ArgumentNullException.ThrowIfNull(authored);
+        placement = authored.Placement;
+        starField = authored.StarField;
+        localSky = authored.LocalSky;
         sky = GalaxySkyView.RenderRgb(placement, starField);
         Compose();
     }
@@ -38,25 +41,28 @@ public sealed class GalaxyPanelDialog : GuiDialog
 
     private void Compose()
     {
-        var width = GalaxyPanelPainter.DesignWidth;
-        var height = GalaxyPanelPainter.DesignHeight;
-
-        var dialogBounds = ElementBounds.Fixed(
-            EnumDialogArea.CenterMiddle,
-            -width / 2.0,
-            -(height + TitleBarHeight) / 2.0,
-            width,
-            height + TitleBarHeight);
-        var canvasBounds = ElementBounds.Fixed(0, TitleBarHeight, width, height);
+        // Same shell as vanilla windows: autosized, title bar with close and movable/fixed,
+        // position remembered under the composer name. Center-bottom so the sky stays visible
+        // above it rather than sitting over the middle of the view.
+        var canvasBounds = ElementBounds.Fixed(
+            0,
+            GuiStyle.TitleBarHeight,
+            GalaxyPanelPainter.DesignWidth,
+            GalaxyPanelPainter.DesignHeight);
+        var backgroundBounds = ElementStdBounds.DialogBackground()
+            .WithChildren(canvasBounds);
+        var dialogBounds = ElementStdBounds.AutosizedMainDialog
+            .WithAlignment(EnumDialogArea.CenterBottom)
+            .WithFixedAlignmentOffset(0, -GuiStyle.DialogToScreenPadding);
 
         SingleComposer = capi.Gui
-            .CreateCompo("astraextera-galaxy-panel", dialogBounds)
-            .AddShadedDialogBG(ElementBounds.Fill, true)
+            .CreateCompo(ComposerName, dialogBounds)
+            .AddShadedDialogBG(backgroundBounds, true)
             .AddDialogTitleBar(GalaxyFacts.PanelTitle(placement), () => TryClose())
             .AddStaticCustomDraw(canvasBounds, OnDrawPanel)
             .Compose();
     }
 
     private void OnDrawPanel(Context ctx, ImageSurface surface, ElementBounds currentBounds)
-        => GalaxyPanelPainter.Paint(ctx, currentBounds, placement, starField, sky);
+        => GalaxyPanelPainter.Paint(ctx, currentBounds, placement, starField, sky, localSky);
 }

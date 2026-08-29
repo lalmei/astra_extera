@@ -58,6 +58,11 @@ public sealed record StarField(
 /// so a dense inner-disk world sees far more stars than an outer-disk or elliptical-halo world,
 /// and a dusty midplane world loses the distant ones.
 /// </para>
+/// <para>
+/// The live game samples once on the server and stores the result. This type is the authoring
+/// step and the preview tool; clients render the stored <see cref="StarField"/> instead of
+/// calling <see cref="Sample"/>.
+/// </para>
 /// </summary>
 public static class StarFieldSampler
 {

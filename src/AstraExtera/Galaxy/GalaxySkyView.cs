@@ -24,6 +24,15 @@ public static class GalaxySkyView
     public static string RenderPngDataUri(GalaxyPlacement placement, StarField? starField = null)
         => "data:image/png;base64," + Convert.ToBase64String(RenderPng(placement, starField));
 
+    public static string RenderGlowPngDataUri(GalaxyPlacement placement)
+        => "data:image/png;base64," + Convert.ToBase64String(RgbPng.Encode(Width, Height, RenderGlowRgb(placement)));
+
+    public static string RenderStarOverlayPngDataUri(StarField starField)
+        => "data:image/png;base64," + Convert.ToBase64String(RgbPng.Encode(Width, Height, RenderStarOverlayRgb(starField)));
+
+    public static string RenderCubemapFacePngDataUri(byte[] faceRgb, int faceSize)
+        => "data:image/png;base64," + Convert.ToBase64String(RgbPng.Encode(faceSize, faceSize, faceRgb));
+
     public static byte[] RenderPng(GalaxyPlacement placement, StarField? starField = null)
     {
         var rgb = RenderRgb(placement, starField);
@@ -31,6 +40,21 @@ public static class GalaxySkyView
     }
 
     public static byte[] RenderRgb(GalaxyPlacement placement, StarField? starField = null)
+    {
+        var rgb = RenderGlowRgb(placement);
+        if (starField is not null)
+        {
+            SplatStars(rgb, starField);
+        }
+
+        return rgb;
+    }
+
+    /// <summary>
+    /// Unresolved integrated light only: the band the sampler left behind. Stars are a separate
+    /// overlay so this map can sit behind them as a sky background.
+    /// </summary>
+    public static byte[] RenderGlowRgb(GalaxyPlacement placement)
     {
         var galaxy = placement.Galaxy;
         var frame = new ObserverFrame(placement.Location);
@@ -81,11 +105,49 @@ public static class GalaxySkyView
             rgb[i * 3 + 2] = (byte)Math.Clamp(BackgroundBlue + glow * 170.0, 0, 255);
         }
 
-        if (starField is not null)
+        return rgb;
+    }
+
+    /// <summary>
+    /// The same unresolved glow, rewritten in equatorial coordinates so it shares the star
+    /// catalog's frame and can wrap the sky behind AstraTerra's billboards.
+    /// </summary>
+    public static byte[] RenderEquatorialGlowRgb(GalaxyPlacement placement)
+    {
+        ArgumentNullException.ThrowIfNull(placement);
+        return ReprojectToEquatorial(RenderGlowRgb(placement), placement.Orientation);
+    }
+
+    public static byte[] ReprojectToEquatorial(byte[] galacticRgb, CelestialOrientation orientation)
+    {
+        ArgumentNullException.ThrowIfNull(galacticRgb);
+        ArgumentNullException.ThrowIfNull(orientation);
+        var equatorial = new byte[Width * Height * 3];
+        for (var y = 0; y < Height; y++)
         {
-            SplatStars(rgb, starField);
+            var declination = 90.0 - (y + 0.5) / Height * 180.0;
+            for (var x = 0; x < Width; x++)
+            {
+                var rightAscension = (x + 0.5) / Width * 360.0;
+                var (longitude, latitude) = orientation.ToGalactic(rightAscension, declination);
+                var (u, v) = EquirectangularSampler.GalacticUv(longitude, latitude);
+                var sample = EquirectangularSampler.Sample(galacticRgb, Width, Height, u, v);
+                var i = (y * Width + x) * 3;
+                equatorial[i] = sample.Red;
+                equatorial[i + 1] = sample.Green;
+                equatorial[i + 2] = sample.Blue;
+            }
         }
 
+        return equatorial;
+    }
+
+    /// <summary>Resolved stars on black, for compositing over the glow with screen blending.</summary>
+    public static byte[] RenderStarOverlayRgb(StarField starField)
+    {
+        ArgumentNullException.ThrowIfNull(starField);
+        var rgb = new byte[Width * Height * 3];
+        SplatStars(rgb, starField);
         return rgb;
     }
 
@@ -140,8 +202,8 @@ public static class GalaxySkyView
 
     public static string Caption(GalaxyPlacement placement)
         => placement.Galaxy.IsElliptical
-            ? "All-sky view from this world (galactic coordinates), resolved stars over unresolved glow. No thin disk: the old spheroid brightens toward the nucleus at longitude 0°."
-            : "All-sky view from this world (galactic coordinates), resolved stars over unresolved glow. The bright band is this galaxy's disk; longitude 0° is the nucleus. Dust lanes show up if you sit near the midplane.";
+            ? "All-sky view from this world (galactic coordinates). Unresolved glow is the background; resolved stars sit on top. No thin disk: the old spheroid brightens toward the nucleus at longitude 0deg."
+            : "All-sky view from this world (galactic coordinates). Unresolved glow is the background; resolved stars sit on top. The bright band is this galaxy's disk; longitude 0deg is the nucleus. Dust lanes show up if you sit near the midplane.";
 }
 
 internal static class RgbPng
