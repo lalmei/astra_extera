@@ -21,8 +21,15 @@ namespace AstraExtera.Client;
 /// </remarks>
 public static class BodyFacePainter
 {
-    /// <summary>A parent giant fills a good part of the sky, so its face carries real detail.</summary>
+    /// <summary>Smallest face a giant gets, and the size of one with no rings to make room for.</summary>
     public const int GiantFaceSize = 512;
+
+    /// <summary>
+    /// Largest face a giant gets. A ringed giant's globe is only a fraction of its face -- the rest
+    /// is the room the rings need -- so the face has to be several times the globe's own picture or
+    /// the globe is thrown away before it is ever drawn.
+    /// </summary>
+    public const int MaxGiantFaceSize = 2048;
 
     /// <summary>A sibling moon is a few degrees at most; more pixels than this would never be seen.</summary>
     public const int MoonFaceSize = 128;
@@ -54,7 +61,7 @@ public static class BodyFacePainter
             appearance?.Ring,
             ringOpenness,
             appearance is null ? 0.0 : GiantAppearances.RingRollRadians(appearance),
-            GiantFaceSize);
+            FaceSizeFor(globe.Size, appearance?.Ring));
 
         return ToFace(face);
     }
@@ -75,6 +82,23 @@ public static class BodyFacePainter
                 openness: 0.0,
                 rollRadians: 0.0,
                 MoonFaceSize));
+    }
+
+    /// <summary>
+    /// How big the composed face has to be for the globe to keep every pixel its own picture has.
+    /// Rings push the globe into the middle of the face, so the face grows with their reach.
+    /// </summary>
+    public static int FaceSizeFor(int globeSourceSize, PlanetRing? ring)
+    {
+        var reach = Math.Max(1.0, ring?.OuterRadiusPlanetRadii ?? 1.0);
+        var wanted = globeSourceSize * reach;
+        var size = GiantFaceSize;
+        while (size < wanted && size < MaxGiantFaceSize)
+        {
+            size *= 2;
+        }
+
+        return size;
     }
 
     private static NearBodyFace ToFace(CelestialFace face)

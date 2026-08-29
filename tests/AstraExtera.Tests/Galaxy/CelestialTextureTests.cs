@@ -227,6 +227,13 @@ public sealed class CelestialTextureTests
         if (!string.IsNullOrEmpty(output))
         {
             WriteRgbPng(output, face);
+
+            // The view a moon world actually gets: inside the ring plane, where the whole system
+            // compresses into a line and any aliasing in the sampling shows up as dashes.
+            WriteRgbPng(
+                Path.ChangeExtension(output, null) + "-edge-on.png",
+                CelestialFaceComposer.Compose(
+                    Source(giant), Source(ringRecord), ringRecord, ring, openness: 0.025, rollRadians: -0.35, size: 512));
         }
 
         Assert.True(Painted(face) > 20_000, "the composed face came out nearly empty");

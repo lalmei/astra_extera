@@ -34,6 +34,13 @@ public static class CelestialFaceComposer
     /// <summary>Rings closed tighter than this would sample a line of pixels into the whole face.</summary>
     public const double MinOpenness = 0.02;
 
+    /// <summary>
+    /// Most taps taken across the source when a ring is squashed down to a line. A nearly edge-on
+    /// ring compresses hundreds of source rows into two or three, and a single tap through that
+    /// picks whichever row it lands on -- which is what turns a ring into a dashed line.
+    /// </summary>
+    public const int MaxRingTaps = 48;
+
     /// <summary>How much of the face's half-width the outermost feature reaches.</summary>
     public const double FaceMargin = 0.98;
 
@@ -147,6 +154,10 @@ public static class CelestialFaceComposer
         var cos = Math.Cos(-rollRadians);
         var sin = Math.Sin(-rollRadians);
 
+        // One destination pixel covers this many source rows once the ring is squashed; each of them
+        // has to be looked at, or the ones between the taps simply vanish.
+        var taps = (int)Math.Clamp(Math.Ceiling(squash * scale * 2.0), 1, MaxRingTaps);
+
         for (var y = 0; y < size; y++)
         {
             for (var x = 0; x < size; x++)
@@ -168,7 +179,12 @@ public static class CelestialFaceComposer
                     continue;
                 }
 
-                var sample = Sample(ring, sourceHalf + (u * scale), sourceHalf + (v * squash * scale));
+                var sample = SampleAveraged(
+                    ring,
+                    sourceHalf + (u * scale),
+                    sourceHalf + (v * squash * scale),
+                    squash * scale,
+                    taps);
                 if (sample == 0)
                 {
                     continue;
@@ -182,6 +198,43 @@ public static class CelestialFaceComposer
                 pixels[(y * size) + x] = Over(sample, pixels[(y * size) + x]);
             }
         }
+    }
+
+    /// <summary>
+    /// The average of several bilinear samples spread across the source rows one destination pixel
+    /// covers: a box filter along the axis the ring is being compressed down.
+    /// </summary>
+    private static int SampleAveraged(CelestialSource source, double x, double y, double span, int taps)
+    {
+        if (taps <= 1)
+        {
+            return Sample(source, x, y);
+        }
+
+        double red = 0, green = 0, blue = 0, alpha = 0;
+        for (var tap = 0; tap < taps; tap++)
+        {
+            var offset = ((tap + 0.5) / taps - 0.5) * span;
+            var sample = Sample(source, x, y + offset);
+            var weight = Alpha(sample);
+            red += Red(sample) * weight;
+            green += Green(sample) * weight;
+            blue += Blue(sample) * weight;
+            alpha += weight;
+        }
+
+        if (alpha <= 0.0)
+        {
+            return 0;
+        }
+
+        // Colour is averaged weighted by coverage, so a faint tap cannot wash out a solid one; the
+        // alpha itself is the plain mean, which is what coverage across the pixel means.
+        return Pack(
+            (int)Math.Round(red / alpha),
+            (int)Math.Round(green / alpha),
+            (int)Math.Round(blue / alpha),
+            (int)Math.Round(alpha / taps));
     }
 
     /// <summary>Bilinear sample, transparent outside the picture.</summary>
