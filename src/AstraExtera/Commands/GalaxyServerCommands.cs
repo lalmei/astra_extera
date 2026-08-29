@@ -6,11 +6,11 @@ namespace AstraExtera.Commands;
 
 public sealed class GalaxyServerCommands
 {
-    private readonly Func<GalaxyPlacement?> placementProvider;
+    private readonly Func<GalaxySky?> skyProvider;
 
-    public GalaxyServerCommands(Func<GalaxyPlacement?> placementProvider)
+    public GalaxyServerCommands(Func<GalaxySky?> skyProvider)
     {
-        this.placementProvider = placementProvider;
+        this.skyProvider = skyProvider;
     }
 
     public void Register(ICoreServerAPI api)
@@ -26,9 +26,9 @@ public sealed class GalaxyServerCommands
 
     private string Describe()
     {
-        var placement = placementProvider();
-        return placement is null
+        var sky = skyProvider();
+        return sky is null
             ? "AstraExtera has not authored a galaxy for this save yet."
-            : GalaxyPlacementCodec.Describe(placement);
+            : GalaxyPlacementCodec.Describe(sky);
     }
 }

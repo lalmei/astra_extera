@@ -33,6 +33,20 @@ public struct SplitMix64
     public bool NextBool(double probability)
         => NextUnit() < probability;
 
+    public int NextInt(int maxExclusive)
+        => NextInt(0, maxExclusive);
+
+    public int NextInt(int minInclusive, int maxExclusive)
+    {
+        var span = maxExclusive - minInclusive;
+        if (span <= 0)
+        {
+            return minInclusive;
+        }
+
+        return minInclusive + (int)(NextUnit() * span);
+    }
+
     public double NextGaussian(double mean, double stdDev)
     {
         var u1 = Math.Max(double.Epsilon, NextUnit());
@@ -40,5 +54,32 @@ public struct SplitMix64
         var radius = Math.Sqrt(-2.0 * Math.Log(u1));
         var z = radius * Math.Cos(2.0 * Math.PI * u2);
         return mean + stdDev * z;
+    }
+
+    /// <summary>
+    /// Knuth's product method for small means, Gaussian approximation once that would underflow.
+    /// </summary>
+    public int NextPoisson(double mean)
+    {
+        if (mean <= 0.0)
+        {
+            return 0;
+        }
+
+        if (mean > 30.0)
+        {
+            return Math.Max(0, (int)Math.Round(NextGaussian(mean, Math.Sqrt(mean))));
+        }
+
+        var limit = Math.Exp(-mean);
+        var product = NextUnit();
+        var count = 0;
+        while (product > limit)
+        {
+            count++;
+            product *= NextUnit();
+        }
+
+        return count;
     }
 }

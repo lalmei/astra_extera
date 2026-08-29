@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>GalaxyPreview</AssemblyName>
+    <RootNamespace>AstraExtera.Tools.GalaxyPreview</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\AstraExtera\AstraExtera.csproj" />
+  </ItemGroup>
+</Project>

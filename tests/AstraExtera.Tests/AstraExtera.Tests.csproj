@@ -3,6 +3,10 @@
     <IsPackable>false</IsPackable>
     <VintageStoryPath Condition="'$(VINTAGE_STORY)' != ''">$(VINTAGE_STORY)</VintageStoryPath>
     <VintageStoryPath Condition="'$(VintageStoryPath)' == ''">/Applications/Vintage Story.app</VintageStoryPath>
+    <AstraTerraPath Condition="'$(ASTRA_TERRA)' != ''">$(ASTRA_TERRA)</AstraTerraPath>
+    <AstraTerraSiblingPath>$(MSBuildThisFileDirectory)../../../astra_terra/src/AstraTerra/bin/$(Configuration)/$(TargetFramework)</AstraTerraSiblingPath>
+    <AstraTerraPath Condition="'$(AstraTerraPath)' == '' And Exists('$(AstraTerraSiblingPath)/AstraTerra.dll')">$(AstraTerraSiblingPath)</AstraTerraPath>
+    <AstraTerraPath Condition="'$(AstraTerraPath)' == ''">$(HOME)/Library/Application Support/VintagestoryData/Mods/AstraTerra</AstraTerraPath>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,6 +23,11 @@
     </Reference>
     <Reference Include="protobuf-net">
       <HintPath>$(VintageStoryPath)/Lib/protobuf-net.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <!-- Copied here, unlike in the mod, so the catalog handover can be tested against the real types. -->
+    <Reference Include="AstraTerra">
+      <HintPath>$(AstraTerraPath)/AstraTerra.dll</HintPath>
       <Private>true</Private>
     </Reference>
   </ItemGroup>

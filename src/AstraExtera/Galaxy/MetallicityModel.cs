@@ -1,9 +1,8 @@
 namespace AstraExtera.Galaxy;
 
 /// <summary>
-/// Radial iron abundance for a thin-disk analog of the Milky Way.
-/// Rocky planets with iron cores need enough Type Ia supernova products; Vintage Story ores
-/// need a still higher floor so siderophile veins are plausible.
+/// Radial iron abundance. Disks are anchored on a solar-neighborhood analog; ellipticals are
+/// anchored on the effective radius of a giant, metal-rich spheroid.
 /// </summary>
 public static class MetallicityModel
 {
@@ -14,7 +13,7 @@ public static class MetallicityModel
 
     public static double MeanFeH(GalaxyBlueprint galaxy, double radiusKpc)
         => galaxy.SolarAnalogMetallicityFeH
-           + galaxy.MetallicityGradientDexPerKpc * (radiusKpc - SolarNeighborhoodRadiusKpc);
+           + galaxy.MetallicityGradientDexPerKpc * (radiusKpc - galaxy.MetallicityReferenceRadiusKpc);
 
     public static double SampleFeH(GalaxyBlueprint galaxy, double radiusKpc, ref SplitMix64 rng)
         => MeanFeH(galaxy, radiusKpc) + rng.NextGaussian(0.0, galaxy.MetallicityScatterDex);
@@ -32,8 +31,9 @@ public static class MetallicityModel
         }
 
         var margin = galaxy.MetallicityScatterDex;
-        var radius = SolarNeighborhoodRadiusKpc
+        var radius = galaxy.MetallicityReferenceRadiusKpc
                      + (OreFormingMinimumFeH + margin - galaxy.SolarAnalogMetallicityFeH) / gradient;
-        return Math.Clamp(radius, galaxy.InnerHabitableRadiusKpc + 0.5, 16.0);
+        var ceiling = galaxy.IsElliptical ? 20.0 : 16.0;
+        return Math.Clamp(radius, galaxy.InnerHabitableRadiusKpc + 0.5, ceiling);
     }
 }

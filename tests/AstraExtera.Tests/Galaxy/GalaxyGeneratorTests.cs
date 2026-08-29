@@ -37,9 +37,11 @@ public sealed class GalaxyGeneratorTests
             Assert.True(placement.CanHostIronCore, $"seed {seed} lacked iron");
             Assert.True(placement.CanHostOres, $"seed {seed} lacked ores");
             Assert.InRange(
-                placement.Location.GalactocentricRadiusKpc,
+                GalaxyGenerator.StructuralRadiusKpc(placement.Galaxy, placement.Location),
                 placement.Galaxy.InnerHabitableRadiusKpc,
                 placement.Galaxy.OuterHabitableRadiusKpc);
+            Assert.True(EarthAnalog.IsEarthlike(placement.World), $"seed {seed} was not an Earth analog");
+            Assert.True(placement.System.IsHabitable, $"seed {seed} local system failed: {string.Join("; ", placement.System.Checks.Where(static c => !c.Passed).Select(static c => c.Detail))}");
         }
     }
 
@@ -50,6 +52,33 @@ public sealed class GalaxyGeneratorTests
         var restored = GalaxyPlacementCodec.FromUtf8(GalaxyPlacementCodec.ToUtf8(original));
 
         Assert.Equal(original, restored);
+    }
+
+    [Fact]
+    public void Ellipticals_Are_Rare_Spheroids_Without_Arms()
+    {
+        GalaxyPlacement? elliptical = null;
+        var ellipticals = 0;
+        const int samples = 800;
+        for (long seed = 1; seed <= samples; seed++)
+        {
+            var placement = GalaxyGenerator.Generate(seed);
+            if (placement.Galaxy.Morphology != GalaxyMorphology.Elliptical)
+            {
+                continue;
+            }
+
+            ellipticals++;
+            elliptical ??= placement;
+            Assert.Equal(0, placement.Galaxy.SpiralArmCount);
+            Assert.False(placement.Location.InSpiralArm);
+            Assert.True(placement.Galaxy.SersicIndex >= 3.0);
+            Assert.True(GalaxyGenerator.IsHabitable(placement.Galaxy, placement.Location));
+            Assert.True(placement.CanHostOres);
+        }
+
+        Assert.NotNull(elliptical);
+        Assert.InRange(ellipticals, 1, samples / 8);
     }
 }
 
@@ -70,7 +99,10 @@ public sealed class MetallicityModelTests
             SpiralArmCount: 4,
             SpiralPitchDeg: 12.0,
             InnerHabitableRadiusKpc: 6.0,
-            OuterHabitableRadiusKpc: 12.0);
+            OuterHabitableRadiusKpc: 12.0,
+            SersicIndex: 1.0,
+            AxisRatio: 0.1,
+            MetallicityReferenceRadiusKpc: 8.0);
 
         Assert.Equal(0.0, MetallicityModel.MeanFeH(galaxy, 8.0), 6);
         Assert.True(MetallicityModel.MeanFeH(galaxy, 12.0) < MetallicityModel.MeanFeH(galaxy, 8.0));
