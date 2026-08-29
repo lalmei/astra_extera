@@ -21,6 +21,7 @@ Worlds are not dropped into a random starfield. The save first draws a Milky Way
 - Unresolved galactic glow is broken into an equatorial cubemap and drawn behind AstraTerra's star billboards, so the band of light is on the sky rather than only on the preview PNG.
 - `make galaxy-preview` writes a random-seed static HTML preview (`dist/galaxy-preview.html`) and opens it. Pass `SEED=42` to pin a known test galaxy.
 - `make star-catalog` writes `dist/star-catalog.v1.json` without opening the preview.
+- `make celestial-textures` rebuilds the shipped planet, moon and ring textures from the source art. It cuts each body off its contact sheet, gives it a circular alpha, strips the filenames some ring renders have burned into them, and divides out the limb darkening the render baked in -- the mod lights these bodies itself, so a second set of shadows in the texture would fight it. The outputs are committed; the game never runs this step.
 
 ## How the star count is decided
 
@@ -69,7 +70,14 @@ Sibling moons drift past it at the rate the two orbits beat against each other: 
 the world and slides one way, an outer one falls behind and slides the other. The sun is the
 limiting case of an infinitely distant sibling, going round once a day.
 
-AstraExtera paints each face and hands it to AstraTerra's `ReplaceNearBodies`, which places the body
+The giant is a photograph-grade render rather than anything drawn in code: the mod ships twelve gas
+giants, sixteen ring systems and fifty-four moons, and picks the one whose own colour sits nearest
+the cloud decks the generator authored, so a giant written down as deep blue methane comes back blue.
+The ring is resampled onto it -- squashed from the tilt it was drawn at to the tilt this giant has,
+rolled to the heading its node runs along, and scaled so its outer edge lands where the authored ring
+ends -- with the far half behind the globe and the near half over it.
+
+That face goes to AstraTerra's `ReplaceNearBodies`, which places the body
 and lights it -- the terminator is shaded from the sphere normal and the real sun direction rather
 than painted in. Vintage Story's own moon is asked to stand down. Only its drawing stops: moonlight,
 the phase the calendar reports, and the length of the day are untouched, so the day cycle is the one

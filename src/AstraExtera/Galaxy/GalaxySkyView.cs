@@ -236,7 +236,11 @@ public static class GalaxySkyView
             : "All-sky view from this world (galactic coordinates). Unresolved glow is the background; resolved stars sit on top. The bright band is this galaxy's disk; longitude 0deg is the nucleus. Dust lanes show up if you sit near the midplane.";
 }
 
-internal static class RgbPng
+/// <summary>
+/// A small PNG encoder for the debug page and the preview tool. Public so tests can write out what
+/// they composed and a person can look at it.
+/// </summary>
+public static class RgbPng
 {
     public static byte[] Encode(int width, int height, byte[] rgb)
     {
