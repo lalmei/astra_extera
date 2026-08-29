@@ -62,6 +62,12 @@ public static class GalaxyPanelPainter
     private const double ZoneX = 0.0;
     private const double SystemX = 268.0;
 
+    // The portrait strip takes what is left of the figure column, so the panel keeps its height.
+    private const double PortraitX = 0.0;
+    private const double PortraitY = SystemY + SystemHeight + 8.0;
+    private const double PortraitWidth = FiguresWidth;
+    private const double PortraitHeight = DesignHeight - PortraitY;
+
     private static readonly double[] Ink = [0.957, 0.969, 0.984, 1.0];
     private static readonly double[] Muted = [0.545, 0.592, 0.671, 1.0];
     private static readonly double[] Gold = [0.831, 0.627, 0.090, 1.0];
@@ -125,7 +131,8 @@ public static class GalaxyPanelPainter
         Context ctx,
         ElementBounds bounds,
         GalaxyPlacement placement,
-        byte[] sky)
+        byte[] sky,
+        LocalSystemSky? localSky = null)
     {
         ArgumentNullException.ThrowIfNull(ctx);
         ArgumentNullException.ThrowIfNull(bounds);
@@ -140,6 +147,7 @@ public static class GalaxyPanelPainter
         PaintEdgeOn(ctx, placement);
         PaintLocalSystem(ctx, placement, ZoneX, zoneView: true);
         PaintLocalSystem(ctx, placement, SystemX, zoneView: false);
+        PaintPortraits(ctx, placement, localSky);
 
         ctx.Restore();
     }
@@ -405,9 +413,9 @@ public static class GalaxyPanelPainter
         ctx.Translate(boxX, SystemY);
         ctx.Scale(scale, scale);
 
-        var innerR = LocalSystemGeometry.RadiusPx(system.HabitableZoneInnerAu, maxAu);
-        var outerR = LocalSystemGeometry.RadiusPx(system.HabitableZoneOuterAu, maxAu);
-        var orbitR = LocalSystemGeometry.RadiusPx(system.OrbitalDistanceAu, maxAu);
+        var innerR = LocalSystemGeometry.RadiusPx(system.HabitableZoneInnerAu, maxAu, zoneView);
+        var outerR = LocalSystemGeometry.RadiusPx(system.HabitableZoneOuterAu, maxAu, zoneView);
+        var orbitR = LocalSystemGeometry.RadiusPx(system.OrbitalDistanceAu, maxAu, zoneView);
 
         if (zoneView)
         {
@@ -423,15 +431,16 @@ public static class GalaxyPanelPainter
         Orbit(ctx, cx, cy, outerR, 0x60a5fa, dashed: true);
         if (!zoneView)
         {
-            Orbit(ctx, cx, cy, LocalSystemGeometry.RadiusPx(system.SnowLineAu, maxAu), 0x94a3b8, dotted: true);
+            Orbit(ctx, cx, cy, LocalSystemGeometry.RadiusPx(system.SnowLineAu, maxAu, zoneView), 0x94a3b8, dotted: true);
         }
 
         Orbit(ctx, cx, cy, orbitR, 0x2a3654);
 
         var companionIndex = 0;
-        foreach (var body in system.Companions)
+        for (var index = 0; index < system.Companions.Length; index++)
         {
-            var radius = LocalSystemGeometry.RadiusPx(body.SemiMajorAxisAu, maxAu);
+            var body = system.Companions[index];
+            var radius = LocalSystemGeometry.RadiusPx(body.SemiMajorAxisAu, maxAu, zoneView);
             if (radius > LocalSystemGeometry.MaxRadiusPx * 0.98)
             {
                 continue;
@@ -439,22 +448,34 @@ public static class GalaxyPanelPainter
 
             Orbit(ctx, cx, cy, radius, 0x2a3654);
             var marker = LocalSystemGeometry.PointOnOrbit(radius, 1.2 + companionIndex * 1.4);
-            var size = body.Role switch
-            {
-                CompanionRole.ShepherdGiant => 10.0,
-                CompanionRole.OuterIceGiant => 7.0,
-                _ => 4.0
-            };
+            var size = LocalSystemGeometry.BodyRadiusPx(body.RadiusEarth, zoneView);
             var fill = body.Role switch
             {
-                CompanionRole.ShepherdGiant => 0xc48a3au,
+                CompanionRole.ShepherdGiant or CompanionRole.OuterGasGiant => 0xc48a3au,
                 CompanionRole.OuterIceGiant => 0x38bdf8u,
                 _ => 0xa16207u
             };
-            Disc(ctx, marker.X, marker.Y, size, fill);
-            if (!zoneView)
+
+            // The ring line runs at the angle the rings actually run, matching the portrait below.
+            if (body.Appearance is { Ring: not null } ringed)
             {
-                CenteredCaption(ctx, marker.X, marker.Y + size + 12.0, LocalSystemGeometry.CompanionLabel(body.Role));
+                var span = size * ringed.Ring!.OuterRadiusPlanetRadii;
+                EllipseOutline(
+                    ctx,
+                    marker.X,
+                    marker.Y,
+                    span,
+                    Math.Max(0.35, span * GiantAppearances.RingOpenness(ringed)),
+                    GiantAppearances.RingRollRadians(ringed),
+                    PlanetPortraits.Rgb(ringed.Ring.TintR, ringed.Ring.TintG, ringed.Ring.TintB),
+                    width: 0.9,
+                    alpha: 0.8);
+            }
+
+            Disc(ctx, marker.X, marker.Y, size, fill);
+            if (!zoneView && LocalSystemGeometry.MapLabel(system.Companions, index) is { } caption)
+            {
+                CenteredCaption(ctx, marker.X, marker.Y + size + 12.0, caption);
             }
 
             companionIndex++;
@@ -523,6 +544,241 @@ public static class GalaxyPanelPainter
             {
                 Disc(ctx, x, y, zoneView ? 2.4 : 1.6, 0x94a3b8);
             }
+        }
+    }
+
+    /// <summary>
+    /// The portrait strip: every companion at disc size, with its banding, its storm, its rings at
+    /// the tilt they run, and its moons. The same layout <see cref="PlanetPortraitSvg"/> draws for
+    /// the preview page, scaled into whatever the figure column has left below the system figures.
+    /// </summary>
+    private static void PaintPortraits(Context ctx, GalaxyPlacement placement, LocalSystemSky? localSky)
+    {
+        var portraits = PlanetPortraits.Layout(placement.System);
+        if (portraits.Count == 0)
+        {
+            return;
+        }
+
+        var names = localSky?.Planets.Select(static planet => planet.DisplayName).ToList() ?? [];
+
+        ctx.Save();
+        ctx.Rectangle(PortraitX, PortraitY, PortraitWidth, PortraitHeight);
+        ctx.Clip();
+        SetColor(ctx, 0x0b1020);
+        ctx.Rectangle(PortraitX, PortraitY, PortraitWidth, PortraitHeight);
+        ctx.Fill();
+
+        ctx.Translate(PortraitX, PortraitY);
+        var scale = Math.Min(
+            PortraitWidth / PlanetPortraits.ViewWidth,
+            PortraitHeight / PlanetPortraits.ViewHeight);
+        ctx.Scale(scale, scale);
+
+        for (var i = 0; i < portraits.Count; i++)
+        {
+            PaintPortrait(ctx, portraits[i], i < names.Count ? names[i] : null);
+        }
+
+        ctx.Restore();
+
+        Frame(ctx, PortraitX, PortraitY, PortraitWidth, PortraitHeight);
+    }
+
+    private static void PaintPortrait(Context ctx, PlanetPortrait portrait, string? name)
+    {
+        var cx = portrait.Cx;
+        var cy = portrait.Cy;
+        var disc = portrait.DiscPx;
+        var ring = portrait.Body.Ring;
+
+        PaintPortraitMoons(ctx, portrait);
+
+        if (ring is not null && portrait.HasRing)
+        {
+            PaintPortraitRing(ctx, portrait, ring, front: false);
+        }
+
+        PaintPortraitDisc(ctx, portrait);
+
+        if (ring is not null && portrait.HasRing)
+        {
+            PaintPortraitRing(ctx, portrait, ring, front: true);
+        }
+
+        var labelY = cy + disc + PlanetPortraits.RingRise(portrait) + 13.0;
+        CenteredCaption(ctx, cx, labelY, name ?? portrait.Label);
+        CenteredCaption(ctx, cx, labelY + 11.0, portrait.SizeLabel);
+    }
+
+    private static void PaintPortraitDisc(Context ctx, PlanetPortrait portrait)
+    {
+        var disc = portrait.DiscPx;
+        if (portrait.Appearance is not { } appearance)
+        {
+            var (r, g, b) = PlanetPortraits.RockyTint();
+            Disc(ctx, portrait.Cx, portrait.Cy, disc, PlanetPortraits.Rgb(r, g, b));
+            ShadeDisc(ctx, portrait);
+            return;
+        }
+
+        var light = PlanetPortraits.Rgb(appearance.BandLightR, appearance.BandLightG, appearance.BandLightB);
+        var dark = PlanetPortraits.Rgb(appearance.BandDarkR, appearance.BandDarkG, appearance.BandDarkB);
+
+        ctx.Save();
+        ctx.Translate(portrait.Cx, portrait.Cy);
+        ctx.Rotate(portrait.RingRollRad);
+        ctx.NewPath();
+        ctx.Arc(0, 0, disc, 0, 2.0 * Math.PI);
+        ctx.Clip();
+
+        SetColor(ctx, light);
+        ctx.Rectangle(-disc, -disc, disc * 2.0, disc * 2.0);
+        ctx.Fill();
+
+        foreach (var band in PlanetPortraits.Bands(appearance))
+        {
+            SetColor(ctx, band.Light ? light : dark);
+            ctx.Rectangle(-disc, band.Top * disc, disc * 2.0, (band.Bottom - band.Top) * disc);
+            ctx.Fill();
+        }
+
+        if (appearance.Storm is { } storm)
+        {
+            var spot = PlanetPortraits.StormPlacement(storm);
+            ctx.Save();
+            ctx.Translate(spot.X * disc, spot.Y * disc);
+            ctx.Scale(1.0, Math.Max(0.05, spot.RadiusY / spot.RadiusX));
+            ctx.NewPath();
+            ctx.Arc(0, 0, spot.RadiusX * disc, 0, 2.0 * Math.PI);
+            ctx.Restore();
+            SetColor(ctx, PlanetPortraits.Rgb(storm.TintR, storm.TintG, storm.TintB));
+            ctx.Fill();
+        }
+
+        ctx.Restore();
+        ShadeDisc(ctx, portrait);
+    }
+
+    /// <summary>A dark limb on the shaded side, so a disc reads as a globe rather than a coin.</summary>
+    private static void ShadeDisc(Context ctx, PlanetPortrait portrait)
+    {
+        var disc = portrait.DiscPx;
+        using var shade = new RadialGradient(
+            portrait.Cx - disc * 0.35,
+            portrait.Cy - disc * 0.40,
+            disc * 0.10,
+            portrait.Cx,
+            portrait.Cy,
+            disc);
+        shade.AddColorStop(0.0, new Color(1.0, 1.0, 1.0, 0.20));
+        shade.AddColorStop(0.55, new Color(0.0, 0.0, 0.0, 0.0));
+        shade.AddColorStop(1.0, new Color(0.0, 0.0, 0.0, 0.55));
+
+        ctx.NewPath();
+        ctx.Arc(portrait.Cx, portrait.Cy, disc, 0, 2.0 * Math.PI);
+        ctx.SetSource(shade);
+        ctx.Fill();
+    }
+
+    private static void PaintPortraitRing(Context ctx, PlanetPortrait portrait, PlanetRing ring, bool front)
+    {
+        var openness = Math.Max(portrait.RingOpenness, 0.015);
+        var color = PlanetPortraits.Rgb(ring.TintR, ring.TintG, ring.TintB);
+        var alpha = Math.Clamp(0.25 + (ring.OpticalDepth * 0.7), 0.12, 0.95);
+        var width = Math.Max(0.6, portrait.RingOuterPx - portrait.RingInnerPx);
+        var mid = (portrait.RingOuterPx + portrait.RingInnerPx) * 0.5;
+
+        RingBand(ctx, portrait, mid, openness, front, color, width, alpha);
+
+        if (ring.HasDivision && portrait.RingDivisionPx > 0.0)
+        {
+            RingBand(
+                ctx,
+                portrait,
+                portrait.RingDivisionPx,
+                openness,
+                front,
+                0x0b1020,
+                Math.Max(0.4, width * 0.18),
+                0.9);
+        }
+    }
+
+    /// <summary>
+    /// One half of a ring band: the far half behind the planet, the near half over it, which is the
+    /// only cue that says the ring is a disc the planet sits inside rather than a halo.
+    /// </summary>
+    /// <remarks>
+    /// Stroked under the squashed transform on purpose, so the band's thickness is foreshortened
+    /// along with its radius. A stroke of even width would turn a nearly edge-on ring into a slab.
+    /// </remarks>
+    private static void RingBand(
+        Context ctx,
+        PlanetPortrait portrait,
+        double radius,
+        double openness,
+        bool front,
+        uint color,
+        double width,
+        double alpha)
+    {
+        ctx.Save();
+        ctx.Translate(portrait.Cx, portrait.Cy);
+        ctx.Rotate(portrait.RingRollRad);
+        ctx.Scale(1.0, openness);
+        ctx.NewPath();
+        ctx.Arc(0, 0, radius, front ? 0.0 : Math.PI, front ? Math.PI : 2.0 * Math.PI);
+        SetColor(ctx, color, alpha);
+        ctx.LineWidth = width;
+        ctx.Stroke();
+        ctx.Restore();
+    }
+
+    /// <summary>
+    /// An ellipse outline of even width: the ring line drawn on the system map, where a ring is a
+    /// single hairline rather than a band.
+    /// </summary>
+    private static void EllipseOutline(
+        Context ctx,
+        double cx,
+        double cy,
+        double rx,
+        double ry,
+        double rollRad,
+        uint color,
+        double width,
+        double alpha)
+    {
+        // The path is built under a squashed transform and stroked under the plain one, so the
+        // ellipse is an ellipse but its stroke keeps an even width.
+        ctx.Save();
+        ctx.Translate(cx, cy);
+        ctx.Rotate(rollRad);
+        ctx.Scale(1.0, Math.Max(ry / Math.Max(rx, 1e-6), 1e-3));
+        ctx.NewPath();
+        ctx.Arc(0, 0, rx, 0, 2.0 * Math.PI);
+        ctx.Restore();
+
+        SetColor(ctx, color, alpha);
+        ctx.LineWidth = width;
+        ctx.Stroke();
+    }
+
+    private static void PaintPortraitMoons(Context ctx, PlanetPortrait portrait)
+    {
+        if (portrait.MoonCount == 0)
+        {
+            return;
+        }
+
+        var y = portrait.Cy - portrait.DiscPx - PlanetPortraits.RingRise(portrait) - 7.0;
+        var span = (portrait.MoonCount - 1) * portrait.MoonSpacingPx;
+        for (var i = 0; i < portrait.MoonCount; i++)
+        {
+            var moon = portrait.Body.Moons[i];
+            var x = portrait.Cx - (span * 0.5) + (i * portrait.MoonSpacingPx);
+            Disc(ctx, x, y, Math.Clamp(moon.RadiusEarth * 4.0, 0.9, 2.4), 0xcbd5e1, 0.85);
         }
     }
 

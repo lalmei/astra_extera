@@ -26,10 +26,10 @@ public static class LocalSystemSvg
         var starSize = zoneView ? 9.0 : 6.0;
         var asMoon = placement.WorldKind == ObserverWorldKind.TerrestrialMoon;
         var angle = zoneView ? LocalSystemGeometry.ZoneWorldAngleRad : LocalSystemGeometry.SystemWorldAngleRad;
-        var orbitR = LocalSystemGeometry.RadiusPx(system.OrbitalDistanceAu, maxAu);
+        var orbitR = LocalSystemGeometry.RadiusPx(system.OrbitalDistanceAu, maxAu, zoneView);
         var world = LocalSystemGeometry.PointOnOrbit(orbitR, angle);
-        var innerR = LocalSystemGeometry.RadiusPx(system.HabitableZoneInnerAu, maxAu);
-        var outerR = LocalSystemGeometry.RadiusPx(system.HabitableZoneOuterAu, maxAu);
+        var innerR = LocalSystemGeometry.RadiusPx(system.HabitableZoneInnerAu, maxAu, zoneView);
+        var outerR = LocalSystemGeometry.RadiusPx(system.HabitableZoneOuterAu, maxAu, zoneView);
         var label = zoneView ? "Habitable zone of the host star" : "Full system around the host star";
 
         var svg = new StringBuilder();
@@ -60,13 +60,14 @@ public static class LocalSystemSvg
 
         if (!zoneView)
         {
-            svg.AppendLine(Orbit(cx, cy, LocalSystemGeometry.RadiusPx(system.SnowLineAu, maxAu), "#94a3b8", dotted: true));
+            svg.AppendLine(Orbit(cx, cy, LocalSystemGeometry.RadiusPx(system.SnowLineAu, maxAu, zoneView), "#94a3b8", dotted: true));
         }
 
         var companionIndex = 0;
-        foreach (var body in system.Companions)
+        for (var index = 0; index < system.Companions.Length; index++)
         {
-            var radius = LocalSystemGeometry.RadiusPx(body.SemiMajorAxisAu, maxAu);
+            var body = system.Companions[index];
+            var radius = LocalSystemGeometry.RadiusPx(body.SemiMajorAxisAu, maxAu, zoneView);
             if (radius > LocalSystemGeometry.MaxRadiusPx * 0.98)
             {
                 continue;
@@ -74,16 +75,29 @@ public static class LocalSystemSvg
 
             svg.AppendLine(Orbit(cx, cy, radius, "#2a3654", dashed: false));
             var marker = LocalSystemGeometry.PointOnOrbit(radius, 1.2 + companionIndex * 1.4);
-            var size = body.Role == CompanionRole.ShepherdGiant ? 10.0
-                : body.Role == CompanionRole.OuterIceGiant ? 7.0
-                : 4.0;
-            var fill = body.Role == CompanionRole.ShepherdGiant ? "url(#giant-fill)"
-                : body.Role == CompanionRole.OuterIceGiant ? "url(#ice-fill)"
-                : "url(#rocky-fill)";
-            svg.AppendLine(Circle(marker.X, marker.Y, size, fill, "none", 0));
-            if (!zoneView)
+            var size = LocalSystemGeometry.BodyRadiusPx(body.RadiusEarth, zoneView);
+            var fill = body.Role switch
             {
-                svg.AppendLine($"""<text x="{F(marker.X)}" y="{F(marker.Y + size + 12)}" text-anchor="middle" fill="#8b97ab" font-size="9">{LocalSystemGeometry.CompanionLabel(body.Role)}</text>""");
+                CompanionRole.ShepherdGiant or CompanionRole.OuterGasGiant => "url(#giant-fill)",
+                CompanionRole.OuterIceGiant => "url(#ice-fill)",
+                _ => "url(#rocky-fill)"
+            };
+
+            // A ringed giant is drawn with its ring line at the angle the rings actually run, so the
+            // map and the portrait below it agree about which way the planet is tipped.
+            if (body.Appearance is { Ring: not null } ringed)
+            {
+                var ringSpan = size * ringed.Ring!.OuterRadiusPlanetRadii;
+                var rise = ringSpan * GiantAppearances.RingOpenness(ringed);
+                var roll = GiantAppearances.RingRollRadians(ringed) * 180.0 / Math.PI;
+                svg.AppendLine(
+                    $"""<ellipse cx="{F(marker.X)}" cy="{F(marker.Y)}" rx="{F(ringSpan)}" ry="{F(Math.Max(0.35, rise))}" fill="none" stroke="{PlanetPortraits.Hex(ringed.Ring.TintR, ringed.Ring.TintG, ringed.Ring.TintB)}" stroke-width="0.9" opacity="0.8" transform="rotate({F(roll)} {F(marker.X)} {F(marker.Y)})"/>""");
+            }
+
+            svg.AppendLine(Circle(marker.X, marker.Y, size, fill, "none", 0));
+            if (!zoneView && LocalSystemGeometry.MapLabel(system.Companions, index) is { } caption)
+            {
+                svg.AppendLine($"""<text x="{F(marker.X)}" y="{F(marker.Y + size + 12)}" text-anchor="middle" fill="#8b97ab" font-size="9">{caption}</text>""");
             }
 
             companionIndex++;
