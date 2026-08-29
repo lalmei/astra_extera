@@ -216,7 +216,8 @@ public sealed record LocalSystem(
         double starMassSolar)
         => Math.Abs(a2 - a1) >= MinHillSeparation * MutualHillAu(a1, mass1Earth, a2, mass2Earth, starMassSolar);
 
-    internal static double GiantRadiusEarthRadii(double massEarth)
+    /// <summary>Radius of a gas giant of this mass, in Earth radii. Degenerate above ~1 Jupiter mass.</summary>
+    public static double GiantRadiusEarthRadii(double massEarth)
         => 2.0 * Math.Sqrt(Math.Sqrt(massEarth));
 
     internal static double IceGiantRadius(double massEarth)
