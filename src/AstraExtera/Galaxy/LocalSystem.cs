@@ -31,12 +31,16 @@ public sealed record LocalSystem(
     double? RocheLimitEarthRadii,
     CompanionPlanet[] Companions,
     SystemMoon[] Moons,
-    int? HabitableMoonIndex)
+    int? HabitableMoonIndex,
+    GiantAppearance? ParentGiantAppearance = null)
 {
     public const double MinStarLifespanGyr = 2.0;
     public const double MaxMoonDayDays = 7.0;
     public const double MinMoonDayDays = 0.40;
     public const double MinHillSeparation = 8.0;
+
+    /// <summary>Longest month a giant's regular moons are given, in Earth days.</summary>
+    public const double MaxGiantMoonMonthDays = 120.0;
 
     /// <summary>
     /// Planets closer in than this lock to the star on a geological timescale, which would
@@ -92,6 +96,7 @@ public sealed record LocalSystem(
                && MoonDayLengthDays.Equals(other.MoonDayLengthDays)
                && RocheLimitEarthRadii.Equals(other.RocheLimitEarthRadii)
                && HabitableMoonIndex.Equals(other.HabitableMoonIndex)
+               && ParentGiantAppearance == other.ParentGiantAppearance
                && Companions.SequenceEqual(other.Companions)
                && Moons.SequenceEqual(other.Moons);
     }
@@ -116,6 +121,7 @@ public sealed record LocalSystem(
         hash.Add(MoonDayLengthDays);
         hash.Add(RocheLimitEarthRadii);
         hash.Add(HabitableMoonIndex);
+        hash.Add(ParentGiantAppearance);
         foreach (var companion in Companions)
         {
             hash.Add(companion);
@@ -345,10 +351,12 @@ public sealed record LocalSystem(
         double? moonOrbitEarthRadii = null;
         double? moonDay = null;
         double? rocheEarthRadii = null;
+        GiantAppearance? giantAppearance = null;
 
         if (asMoon)
         {
             giantMass = rng.NextRange(100.0, 300.0);
+            giantAppearance = GiantAppearances.Sample(ref rng, CompanionRole.ShepherdGiant, giantMass.Value);
             moons = PlaceMoonFamily(ref rng, starMass, orbitalAu, giantMass.Value, bulk);
             var home = moons.First(static moon => moon.Habitable);
             habitableMoonIndex = home.Index;
@@ -393,7 +401,8 @@ public sealed record LocalSystem(
             rocheEarthRadii,
             companions,
             moons,
-            habitableMoonIndex);
+            habitableMoonIndex,
+            giantAppearance);
         world = EarthAnalog.WithClimate(bulk, eqTemp, surfTemp);
         return EarthAnalog.IsEarthlike(world);
     }
@@ -560,6 +569,17 @@ public sealed record LocalSystem(
         return au * EarthRadiiPerAu;
     }
 
+    /// <summary>
+    /// Fills out the rest of the system: a few rocky worlds inside the liquid-water belt, the
+    /// shepherd giant past the snow line, and whatever else the disk had material left for --
+    /// a second gas giant trailing the shepherd, and one or two ice giants beyond both.
+    /// </summary>
+    /// <remarks>
+    /// Every body is checked for mutual Hill separation against the ones already placed, so the
+    /// system is one that survives rather than one that scatters itself in a few million years.
+    /// Giants also get a face and a moon family here, because a giant is the one companion a player
+    /// will actually look at.
+    /// </remarks>
     private static CompanionPlanet[] PlaceCompanions(
         ref SplitMix64 rng,
         double starMassSolar,
@@ -569,45 +589,164 @@ public sealed record LocalSystem(
         double habitableAu,
         double habitableMassEarth)
     {
-        var placed = new List<CompanionPlanet>(3)
+        var placed = new List<CompanionPlanet>(7);
+
+        var innerCount = rng.NextUnit() switch
         {
-            PlaceShepherd(ref rng, starMassSolar, snowLineAu, outerHz, habitableAu, habitableMassEarth)
+            < 0.18 => 0,
+            < 0.55 => 1,
+            < 0.85 => 2,
+            _ => 3
         };
 
-        if (rng.NextBool(0.55))
+        for (var i = 0; i < innerCount; i++)
         {
-            var innerAu = rng.NextRange(innerHz * 0.32, innerHz * 0.82);
-            var innerMass = rng.NextRange(0.06, 0.70);
-            if (innerAu > 0.03
-                && HillSeparated(innerAu, innerMass, habitableAu, habitableMassEarth, starMassSolar))
+            var innerAu = rng.NextRange(innerHz * 0.28, innerHz * 0.88);
+            var innerMass = rng.NextRange(0.05, 1.40);
+            if (innerAu <= 0.03
+                || !HillSeparated(innerAu, innerMass, habitableAu, habitableMassEarth, starMassSolar)
+                || !SeparatedFromAll(placed, innerAu, innerMass, starMassSolar))
             {
-                placed.Add(new CompanionPlanet(
-                    CompanionRole.InnerRocky,
-                    innerAu,
-                    innerMass,
-                    WorldRadiusFromMass(innerMass),
-                    ComputeOrbitalPeriodDays(innerAu, starMassSolar)));
+                continue;
+            }
+
+            placed.Add(new CompanionPlanet(
+                CompanionRole.InnerRocky,
+                innerAu,
+                innerMass,
+                WorldRadiusFromMass(innerMass),
+                ComputeOrbitalPeriodDays(innerAu, starMassSolar)));
+        }
+
+        var shepherd = PlaceShepherd(ref rng, starMassSolar, snowLineAu, outerHz, habitableAu, habitableMassEarth);
+        placed.Add(WithGiantDetail(ref rng, shepherd, starMassSolar));
+
+        var outermost = shepherd;
+        if (rng.NextBool(0.45))
+        {
+            var au = outermost.SemiMajorAxisAu * rng.NextRange(1.55, 2.30);
+            var mass = rng.NextRange(45.0, 260.0);
+            if (SeparatedFromAll(placed, au, mass, starMassSolar))
+            {
+                var second = new CompanionPlanet(
+                    CompanionRole.OuterGasGiant,
+                    au,
+                    mass,
+                    GiantRadiusEarthRadii(mass),
+                    ComputeOrbitalPeriodDays(au, starMassSolar));
+                placed.Add(WithGiantDetail(ref rng, second, starMassSolar));
+                outermost = second;
             }
         }
 
-        if (rng.NextBool(0.40))
+        var iceCount = rng.NextUnit() switch
         {
-            var shepherd = placed[0];
-            var iceAu = shepherd.SemiMajorAxisAu * rng.NextRange(1.65, 2.55);
-            var iceMass = rng.NextRange(14.0, 22.0);
-            if (HillSeparated(shepherd.SemiMajorAxisAu, shepherd.MassEarth, iceAu, iceMass, starMassSolar))
+            < 0.35 => 0,
+            < 0.80 => 1,
+            _ => 2
+        };
+
+        for (var i = 0; i < iceCount; i++)
+        {
+            var au = outermost.SemiMajorAxisAu * rng.NextRange(1.60, 2.45);
+            var mass = rng.NextRange(11.0, 24.0);
+            if (!SeparatedFromAll(placed, au, mass, starMassSolar))
             {
-                placed.Add(new CompanionPlanet(
-                    CompanionRole.OuterIceGiant,
-                    iceAu,
-                    iceMass,
-                    IceGiantRadius(iceMass),
-                    ComputeOrbitalPeriodDays(iceAu, starMassSolar)));
+                continue;
             }
+
+            var ice = new CompanionPlanet(
+                CompanionRole.OuterIceGiant,
+                au,
+                mass,
+                IceGiantRadius(mass),
+                ComputeOrbitalPeriodDays(au, starMassSolar));
+            placed.Add(WithGiantDetail(ref rng, ice, starMassSolar));
+            outermost = ice;
         }
 
         placed.Sort(static (a, b) => a.SemiMajorAxisAu.CompareTo(b.SemiMajorAxisAu));
         return [.. placed];
+    }
+
+    private static bool SeparatedFromAll(
+        List<CompanionPlanet> placed,
+        double au,
+        double massEarth,
+        double starMassSolar)
+        => placed.All(body => HillSeparated(
+            body.SemiMajorAxisAu,
+            body.MassEarth,
+            au,
+            massEarth,
+            starMassSolar));
+
+    /// <summary>Gives a giant its face and its moons; rocky companions are returned untouched.</summary>
+    private static CompanionPlanet WithGiantDetail(
+        ref SplitMix64 rng,
+        CompanionPlanet giant,
+        double starMassSolar)
+    {
+        if (!giant.IsGiant)
+        {
+            return giant;
+        }
+
+        var appearance = GiantAppearances.Sample(ref rng, giant.Role, giant.MassEarth);
+        var moons = PlaceGiantMoons(ref rng, starMassSolar, giant, appearance);
+        return giant with { Appearance = appearance, Moons = moons };
+    }
+
+    /// <summary>
+    /// A giant's moons, spaced geometrically from just outside the Roche limit -- and outside any
+    /// ring, since ring debris is what never managed to become a moon -- to a fraction of the Hill
+    /// sphere, beyond which the star strips them away.
+    /// </summary>
+    private static SystemMoon[] PlaceGiantMoons(
+        ref SplitMix64 rng,
+        double starMassSolar,
+        CompanionPlanet giant,
+        GiantAppearance appearance)
+    {
+        var count = giant.MassEarth switch
+        {
+            >= 150.0 => rng.NextInt(2, 6),
+            >= 40.0 => rng.NextInt(1, 5),
+            _ => rng.NextInt(0, 4)
+        };
+
+        if (count <= 0)
+        {
+            return [];
+        }
+
+        var giantRadius = giant.RadiusEarth;
+        var roche = ComputeRocheLimitEarthRadii(giantRadius, 0.3);
+        var ringEdge = appearance.Ring is { } ring ? ring.OuterRadiusPlanetRadii * giantRadius : 0.0;
+        var inner = Math.Max(roche * 1.15, ringEdge * 1.08);
+        var hill = GiantHillSphereEarthRadii(giant.SemiMajorAxisAu, giant.MassEarth, starMassSolar);
+
+        // Regular moons keep short months; anything out near the Hill radius is a captured body on
+        // a years-long orbit, which is not the family this draws.
+        var monthLimit = MoonOrbitForPeriodEarthRadii(giant.MassEarth, MaxGiantMoonMonthDays);
+        var outer = Math.Max(Math.Min(hill * 0.35, monthLimit), inner * 1.6);
+        var factor = count == 1 ? 1.0 : Math.Pow(outer / inner, 1.0 / (count - 1));
+
+        var moons = new SystemMoon[count];
+        for (var i = 0; i < count; i++)
+        {
+            var orbit = inner * Math.Pow(factor, i) * rng.NextRange(0.96, 1.06);
+            var mass = rng.NextRange(0.0004, i == 0 ? 0.012 : 0.045);
+            moons[i] = new SystemMoon(
+                Index: i + 1,
+                OrbitalDistanceEarthRadii: orbit,
+                MassEarth: mass,
+                RadiusEarth: WorldRadiusFromMass(mass),
+                DayLengthDays: MoonOrbitalPeriodDays(giant.MassEarth, orbit),
+                Habitable: false);
+        }
+
+        return moons;
     }
 
     private static CompanionPlanet PlaceShepherd(
