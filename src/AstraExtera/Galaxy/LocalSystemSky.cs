@@ -127,6 +127,7 @@ public sealed record LocalSystemSky(
         {
             CompanionRole.InnerRocky => (0.02, 0.12, 0.4, 6.5),
             CompanionRole.ShepherdGiant => (0.02, 0.08, 0.3, 3.2),
+            CompanionRole.OuterGasGiant => (0.02, 0.09, 0.4, 3.6),
             CompanionRole.OuterIceGiant => (0.01, 0.06, 0.4, 4.5),
             _ => (0.02, 0.08, 0.5, 4.0)
         };
@@ -138,7 +139,7 @@ public sealed record LocalSystemSky(
             rng.NextRange(minE, maxE),
             rng.NextRange(minI, maxI));
 
-        var (tintR, tintG, tintB) = TintFor(companion.Role, ref rng);
+        var (tintR, tintG, tintB) = TintFor(companion, ref rng);
         return new AuthoredPlanet(
             Id: $"companion-{index + 1}-{companion.Role.ToString().ToLowerInvariant()}",
             DisplayName: PickName(NamesFor(companion.Role), ref rng, usedNames),
@@ -264,17 +265,42 @@ public sealed record LocalSystemSky(
             PeakZenithHourlyRate: zhr);
     }
 
+    /// <summary>
+    /// The planet's magnitude at unit distance, plus whatever its rings add. AstraTerra draws every
+    /// planet as a point of light, so a ring system reaches the sky as brightness and nothing else --
+    /// which is exactly how Saturn's rings reach the naked eye from Earth.
+    /// </summary>
     private static double AbsoluteMagnitudeFor(CompanionPlanet companion)
-        => companion.Role switch
+    {
+        var bare = companion.Role switch
         {
             CompanionRole.InnerRocky => 1.8 - (2.6 * Math.Log10(Math.Max(0.08, companion.RadiusEarth))),
             CompanionRole.ShepherdGiant => -8.2 - (0.004 * (companion.MassEarth - 180.0)),
+            CompanionRole.OuterGasGiant => -7.6 - (0.004 * (companion.MassEarth - 150.0)),
             CompanionRole.OuterIceGiant => -6.6 - (0.02 * (companion.MassEarth - 17.0)),
             _ => 0.0
         };
 
-    private static (float R, float G, float B) TintFor(CompanionRole role, ref SplitMix64 rng)
-        => role switch
+        return bare + GiantAppearances.RingBrightnessBoostMagnitudes(companion.Appearance);
+    }
+
+    /// <summary>
+    /// A planet's colour in the sky. A giant with an authored face lends its own cloud decks, so the
+    /// dot a player sees matches the portrait in the galaxy panel; anything else falls back to the
+    /// colour its kind usually has.
+    /// </summary>
+    private static (float R, float G, float B) TintFor(CompanionPlanet companion, ref SplitMix64 rng)
+    {
+        if (companion.Appearance is { } appearance)
+        {
+            // Two thirds of the light comes off the bright zones, one third off the dark belts.
+            return (
+                (appearance.BandLightR * 0.66f) + (appearance.BandDarkR * 0.34f),
+                (appearance.BandLightG * 0.66f) + (appearance.BandDarkG * 0.34f),
+                (appearance.BandLightB * 0.66f) + (appearance.BandDarkB * 0.34f));
+        }
+
+        return companion.Role switch
         {
             CompanionRole.InnerRocky => (
                 (float)rng.NextRange(0.82, 0.96),
@@ -290,12 +316,14 @@ public sealed record LocalSystemSky(
                 (float)rng.NextRange(0.90, 1.0)),
             _ => (0.9f, 0.9f, 0.9f)
         };
+    }
 
     private static string[] NamesFor(CompanionRole role)
         => role switch
         {
             CompanionRole.InnerRocky => InnerNames,
             CompanionRole.ShepherdGiant => ShepherdNames,
+            CompanionRole.OuterGasGiant => GiantNames,
             CompanionRole.OuterIceGiant => IceNames,
             _ => InnerNames
         };
@@ -404,6 +432,7 @@ public sealed record LocalSystemSky(
 
     private static readonly string[] InnerNames = ["Cinder", "Ember", "Flint", "Ochre", "Pumice"];
     private static readonly string[] ShepherdNames = ["Warden", "Keeper", "Bulwark", "Titan", "Sable"];
+    private static readonly string[] GiantNames = ["Vault", "Anvil", "Mantle", "Ochre King", "Halo"];
     private static readonly string[] IceNames = ["Rime", "Glaze", "Floe", "Cobalt", "Indigo"];
     private static readonly string[] CometNames =
         ["Vesper", "Harl", "Brume", "Wyrm", "Mote", "Drift", "Harrow", "Calx", "Omen", "Lumen"];
