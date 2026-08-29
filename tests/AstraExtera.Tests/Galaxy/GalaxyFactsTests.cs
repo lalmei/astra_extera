@@ -29,28 +29,56 @@ public sealed class GalaxyFactsTests
     }
 
     /// <summary>
-    /// The panel draws these strings with the game font, which is not guaranteed to carry the
-    /// astronomical symbols. A solar-mass sign that renders as a missing-glyph box in game is worse
-    /// than spelling the unit out, so the shared facts stay inside Latin-1.
+    /// None of the three fonts Vintage Story ships has a glyph beyond Latin-1 that these strings
+    /// need, so anything outside it renders in game as a missing-glyph box. The two astronomical
+    /// symbols are the deliberate exception: the panel painter draws those as vectors rather than
+    /// as text. Any other character above U+00FF would reach the panel as a box, so it fails here.
     /// </summary>
     [Theory]
     [InlineData(42)]
     [InlineData(7)]
     [InlineData(1979)]
-    public void Values_Stay_Inside_Latin1_So_The_Game_Font_Can_Draw_Them(int seed)
+    public void Values_Stay_Drawable_By_The_Game_Font(int seed)
     {
         var placement = GalaxyGenerator.Generate(seed);
         var sections = GalaxyFacts.Describe(GalaxySky.Author(placement));
+        var drawnAsVectors = GalaxyFacts.Sun + GalaxyFacts.Earth;
 
         foreach (var row in sections.SelectMany(static section => section.Rows))
         {
             foreach (var character in row.Term + row.Value)
             {
                 Assert.True(
-                    character <= 0xFF,
-                    $"'{row.Term}' carries U+{(int)character:X4} '{character}', outside Latin-1");
+                    character <= 0xFF || drawnAsVectors.Contains(character),
+                    $"'{row.Term}' carries U+{(int)character:X4} '{character}', which the game font "
+                    + "cannot draw and the painter has no vector for");
             }
         }
+    }
+
+    /// <summary>
+    /// The symbols have to actually reach the rows; spelling a unit back out as "Msun" would pass
+    /// the drawable check above while quietly undoing the change.
+    /// </summary>
+    [Fact]
+    public void Solar_And_Earth_Units_Use_Their_Symbols()
+    {
+        var rows = GalaxyFacts.Describe(GalaxySky.Author(42))
+            .SelectMany(static section => section.Rows)
+            .ToDictionary(static row => row.Term, static row => row.Value);
+
+        Assert.Contains(GalaxyFacts.Sun, rows["Stellar mass"], StringComparison.Ordinal);
+        Assert.Contains("M" + GalaxyFacts.Sun, rows["Star"], StringComparison.Ordinal);
+        Assert.Contains("R" + GalaxyFacts.Sun, rows["Star"], StringComparison.Ordinal);
+        Assert.Contains("L" + GalaxyFacts.Sun, rows["Star"], StringComparison.Ordinal);
+        Assert.Contains("R" + GalaxyFacts.Earth, rows["Radius"], StringComparison.Ordinal);
+        Assert.Contains("M" + GalaxyFacts.Earth, rows["Mass"], StringComparison.Ordinal);
+
+        Assert.All(rows.Values, static value =>
+        {
+            Assert.DoesNotContain("Msun", value, StringComparison.Ordinal);
+            Assert.DoesNotContain("Rearth", value, StringComparison.Ordinal);
+        });
     }
 
     [Fact]

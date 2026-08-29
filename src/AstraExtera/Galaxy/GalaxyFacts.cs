@@ -11,12 +11,22 @@ public sealed record GalaxyFactSection(string Heading, IReadOnlyList<GalaxyFact>
 /// <para>
 /// Kept in one place because the two readers are checked against each other by eye: a number that
 /// means one thing on the debug page and another in the game panel is worse than no number at all.
-/// Units stay inside Latin-1, since the in-game font is not guaranteed to carry the astronomical
-/// symbols -- a solar mass renders as "Msun" rather than risking a missing-glyph box.
+/// </para>
+/// <para>
+/// Solar and Earth units carry their real symbols, <see cref="Sun"/> and <see cref="Earth"/>. None
+/// of the three fonts Vintage Story ships has a glyph for either, so the in-game panel draws them
+/// as vectors instead of as text -- see the symbol handling in the panel painter. The static
+/// preview page renders them as ordinary characters, because a browser font does carry them.
 /// </para>
 /// </summary>
 public static class GalaxyFacts
 {
+    /// <summary>Sun symbol (U+2609), for solar masses, radii and luminosities.</summary>
+    public const string Sun = "\u2609";
+
+    /// <summary>Earth symbol (U+2295), for Earth masses, radii and densities.</summary>
+    public const string Earth = "\u2295";
+
     public static IReadOnlyList<GalaxyFactSection> Describe(
         GalaxyPlacement placement,
         StarField starField,
@@ -77,13 +87,13 @@ public static class GalaxyFacts
         if (galaxy.IsElliptical)
         {
             rows.Add(new GalaxyFact("Morphology", $"{galaxy.MorphologyLabel}, Sersic n {F(galaxy.SersicIndex)}, q {F(galaxy.AxisRatio)}"));
-            rows.Add(new GalaxyFact("Stellar mass", $"{galaxy.StellarMassSolar:0.00e+0} Msun"));
+            rows.Add(new GalaxyFact("Stellar mass", $"{galaxy.StellarMassSolar:0.00e+0} M\u2609"));
             rows.Add(new GalaxyFact("Spheroid", $"Re {F(galaxy.DiskScaleLengthKpc)} kpc"));
         }
         else
         {
             rows.Add(new GalaxyFact("Morphology", $"{galaxy.MorphologyLabel}, {galaxy.SpiralArmCount} arms, pitch {F(galaxy.SpiralPitchDeg)}°"));
-            rows.Add(new GalaxyFact("Stellar mass", $"{galaxy.StellarMassSolar:0.00e+0} Msun"));
+            rows.Add(new GalaxyFact("Stellar mass", $"{galaxy.StellarMassSolar:0.00e+0} M\u2609"));
             rows.Add(new GalaxyFact("Disk", $"Rd {F(galaxy.DiskScaleLengthKpc)} kpc, thin-disk h {F(galaxy.ThinDiskScaleHeightPc)} pc, B/D {F(galaxy.BulgeToDiskMass)}"));
         }
 
@@ -110,7 +120,7 @@ public static class GalaxyFacts
                 placement.Galaxy.IsElliptical ? "none" : location.InSpiralArm ? "inside an arm" : "interarm"),
             new GalaxyFact(
                 "Local density",
-                $"rho/rho_sun {F(location.LocalStellarDensityRelativeToSolar)}, SN/SN_sun {F(location.SupernovaRateRelativeToSolar)}")
+                $"rho/rho\u2609 {F(location.LocalStellarDensityRelativeToSolar)}, SN/SN\u2609 {F(location.SupernovaRateRelativeToSolar)}")
         ];
     }
 
@@ -119,7 +129,7 @@ public static class GalaxyFacts
         var system = placement.System;
         var rows = new List<GalaxyFact>
         {
-            new("Star", $"{system.StarClassLabel}, {F(system.StarMassSolar)} Msun, {F(system.StarRadiusSolar)} Rsun, {F(system.LuminositySolar)} Lsun"),
+            new("Star", $"{system.StarClassLabel}, {F(system.StarMassSolar)} M\u2609, {F(system.StarRadiusSolar)} R\u2609, {F(system.LuminositySolar)} L\u2609"),
             new("Lifespan", $"{F(system.StarLifespanGyr)} Gyr"),
             new("Liquid-water belt", $"{F(system.HabitableZoneInnerAu)} - {F(system.HabitableZoneOuterAu)} AU"),
             new(
@@ -131,10 +141,10 @@ public static class GalaxyFacts
 
         if (placement.WorldKind == ObserverWorldKind.TerrestrialMoon)
         {
-            rows.Add(new GalaxyFact("Parent giant", $"{F(system.ParentGiantMassEarth ?? 0.0)} Mearth"));
+            rows.Add(new GalaxyFact("Parent giant", $"{F(system.ParentGiantMassEarth ?? 0.0)} M\u2295"));
             rows.Add(new GalaxyFact(
                 "Moon orbit",
-                $"{F(system.MoonOrbitalDistanceEarthRadii ?? 0.0)} Rearth, tidal day {F(system.MoonDayLengthDays ?? 0.0)} d, Roche {F(system.RocheLimitEarthRadii ?? 0.0)} Rearth"));
+                $"{F(system.MoonOrbitalDistanceEarthRadii ?? 0.0)} R\u2295, tidal day {F(system.MoonDayLengthDays ?? 0.0)} d, Roche {F(system.RocheLimitEarthRadii ?? 0.0)} R\u2295"));
             if (system.Moons.Length > 1)
             {
                 rows.Add(new GalaxyFact("Moon family", $"{system.Moons.Length} moons, habitable is #{system.HabitableMoonIndex}"));
@@ -145,7 +155,7 @@ public static class GalaxyFacts
         {
             rows.Add(new GalaxyFact(
                 CompanionTerm(body.Role),
-                $"{F(body.SemiMajorAxisAu)} AU, {F(body.MassEarth)} Mearth, year {F(body.OrbitalPeriodDays)} d"));
+                $"{F(body.SemiMajorAxisAu)} AU, {F(body.MassEarth)} M\u2295, year {F(body.OrbitalPeriodDays)} d"));
         }
 
         return rows;
@@ -165,12 +175,12 @@ public static class GalaxyFacts
         var world = placement.World;
         return
         [
-            new GalaxyFact("Radius", $"{F(world.RadiusEarth)} Rearth"),
-            new GalaxyFact("Mass", $"{F(world.MassEarth)} Mearth"),
+            new GalaxyFact("Radius", $"{F(world.RadiusEarth)} R\u2295"),
+            new GalaxyFact("Mass", $"{F(world.MassEarth)} M\u2295"),
             new GalaxyFact("Surface gravity", $"{F(world.SurfaceGravityG)} g"),
             new GalaxyFact("Bulk iron", $"{F(world.BulkIronMassFraction * 100.0)} wt% (Earth 32.1)"),
             new GalaxyFact("Core mass", $"{F(world.CoreMassFraction * 100.0)} % (Earth 32.5)"),
-            new GalaxyFact("Mean density", $"{F(world.MeanDensityEarth)} rho_earth"),
+            new GalaxyFact("Mean density", $"{F(world.MeanDensityEarth)} rho\u2295"),
             new GalaxyFact("Surface temperature", $"{F(world.SurfaceTemperatureK)} K"),
             new GalaxyFact("Equilibrium temperature", $"{F(world.EquilibriumTemperatureK)} K")
         ];
