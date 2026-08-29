@@ -127,22 +127,34 @@ public static class GalaxyPanelPainter
         return LayOutFacts(ctx, placement, starField, localSky, measureOnly: true);
     }
 
+    /// <summary>
+    /// Draws the figure column. <paramref name="sky"/> is null while the all-sky panorama is still
+    /// being rendered off the main thread; the box says so rather than sitting empty, and the caller
+    /// redraws once it arrives.
+    /// </summary>
     public static void PaintFigures(
         Context ctx,
         ElementBounds bounds,
         GalaxyPlacement placement,
-        byte[] sky,
+        byte[]? sky,
         LocalSystemSky? localSky = null)
     {
         ArgumentNullException.ThrowIfNull(ctx);
         ArgumentNullException.ThrowIfNull(bounds);
         ArgumentNullException.ThrowIfNull(placement);
-        ArgumentNullException.ThrowIfNull(sky);
 
         ctx.Save();
         ctx.Scale(bounds.InnerWidth / FiguresWidth, bounds.InnerHeight / DesignHeight);
 
-        PaintSky(ctx, sky);
+        if (sky is null)
+        {
+            PaintPendingSky(ctx);
+        }
+        else
+        {
+            PaintSky(ctx, sky);
+        }
+
         PaintFaceOn(ctx, placement);
         PaintEdgeOn(ctx, placement);
         PaintLocalSystem(ctx, placement, ZoneX, zoneView: true);
