@@ -219,6 +219,15 @@ public static class GalaxyPanelPainter
         return y;
     }
 
+    private static void PaintPendingSky(Context ctx)
+    {
+        SetColor(ctx, 0x0b1020);
+        ctx.Rectangle(SkyX, SkyY, SkyWidth, SkyHeight);
+        ctx.Fill();
+        Frame(ctx, SkyX, SkyY, SkyWidth, SkyHeight);
+        CenteredCaption(ctx, SkyX + (SkyWidth / 2.0), SkyY + (SkyHeight / 2.0), "Drawing the all-sky view...");
+    }
+
     private static void PaintSky(Context ctx, byte[] rgb)
     {
         const int width = GalaxySkyView.Width;
