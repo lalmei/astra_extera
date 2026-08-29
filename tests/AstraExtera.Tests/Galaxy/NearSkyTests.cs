@@ -96,6 +96,56 @@ public sealed class NearSkyTests
         Assert.Equal(0.0, NearSky.HourAngleRateDegPerDay(1.0, 1.0), 9);
     }
 
+    /// <summary>
+    /// A habitable moon is a regular satellite: it orbits in its giant's equatorial plane, which is
+    /// the plane the rings lie in. So an observer stands inside the ring plane and the rings are a
+    /// line across the planet, not an ellipse around it -- however far over the giant is tipped.
+    /// </summary>
+    [Fact]
+    public void The_Parent_Giants_Rings_Are_Seen_Edge_On_From_Its_Own_Moon()
+    {
+        var seen = 0;
+        for (long seed = 1; seed <= 256; seed++)
+        {
+            var placement = GalaxyGenerator.Generate(seed);
+            if (placement.WorldKind != ObserverWorldKind.TerrestrialMoon)
+            {
+                continue;
+            }
+
+            var giant = NearSky.Author(placement).Single(static body => body.Role == NearBodyRole.ParentGiant);
+            seen++;
+
+            // Two degrees of opening is a line a few pixels thick across a face tens of degrees wide.
+            Assert.InRange(giant.RingOpenness, 0.0, Math.Sin(3.0 * Math.PI / 180.0));
+
+            // A giant lying well over on its side shows an observer elsewhere in the system a wide
+            // ellipse. From its own moon that same giant still shows a line, because the moon went
+            // over with it.
+            if (placement.System.ParentGiantAppearance is { ObliquityDeg: > 30.0 } tipped)
+            {
+                Assert.True(
+                    giant.RingOpenness < GiantAppearances.RingOpenness(tipped) * 0.25,
+                    $"seed {seed}: a tipped giant's rings opened up as if watched from another planet");
+            }
+        }
+
+        Assert.True(seen > 0);
+    }
+
+    [Fact]
+    public void Standing_Off_The_Equator_Lifts_The_Rings_Further_Than_The_Orbit_Does()
+    {
+        // A world of one Earth radius at forty radii out: about 1.4 degrees from latitude alone.
+        var fromLatitudeOnly = NearSky.RingOpennessFromMoon(0.0, homeRadiusEarth: 1.0, homeOrbit: 40.0);
+        var withTilt = NearSky.RingOpennessFromMoon(0.5, homeRadiusEarth: 1.0, homeOrbit: 40.0);
+
+        Assert.Equal(Math.Sin(Math.Atan(1.0 / 40.0)), fromLatitudeOnly, 9);
+        Assert.InRange(fromLatitudeOnly * 180.0 / Math.PI, 1.0, 2.0);
+        Assert.True(withTilt > fromLatitudeOnly);
+        Assert.Equal(0.0, NearSky.RingOpennessFromMoon(0.5, 1.0, 0.0));
+    }
+
     [Fact]
     public void Angular_Size_Follows_Radius_Over_Distance()
     {

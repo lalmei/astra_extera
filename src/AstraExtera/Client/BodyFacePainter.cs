@@ -27,9 +27,15 @@ public static class BodyFacePainter
     /// <summary>A sibling moon is a few degrees at most; more pixels than this would never be seen.</summary>
     public const int MoonFaceSize = 128;
 
+    /// <param name="ringOpenness">
+    /// How far open the rings look from where this body is being watched, as the ellipse's short axis
+    /// over its long one. It is the caller's to work out, not the giant's: the same rings are wide
+    /// open from another planet and a knife edge from a moon that orbits inside their plane.
+    /// </param>
     public static NearBodyFace PaintGiant(
         CelestialTextureLibrary library,
         GiantAppearance? appearance,
+        double ringOpenness,
         long worldSeed)
     {
         ArgumentNullException.ThrowIfNull(library);
@@ -46,7 +52,7 @@ public static class BodyFacePainter
             library.Load(ringRecord),
             ringRecord,
             appearance?.Ring,
-            appearance is null ? 0.0 : GiantAppearances.RingOpenness(appearance),
+            ringOpenness,
             appearance is null ? 0.0 : GiantAppearances.RingRollRadians(appearance),
             GiantFaceSize);
 

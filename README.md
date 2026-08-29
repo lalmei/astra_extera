@@ -70,6 +70,13 @@ Sibling moons drift past it at the rate the two orbits beat against each other: 
 the world and slides one way, an outer one falls behind and slides the other. The sun is the
 limiting case of an infinitely distant sibling, going round once a day.
 
+The rings are a line, not an ellipse. A habitable moon is a regular satellite -- it formed in the
+disc that became the rings, which is why it is locked at all -- so it orbits inside the ring plane
+and sees the rings edge-on, bisecting the planet. Only two things lift them off that line, and both
+are fractions of a degree: the orbit's own tilt, and standing away from the world's equator, which
+puts you up to one world radius clear of the plane. A giant lying on its side shows a wide ellipse to
+anyone else in the system and still shows a line to its own moon, because the moon went over with it.
+
 The giant is a photograph-grade render rather than anything drawn in code: the mod ships twelve gas
 giants, sixteen ring systems and fifty-four moons, and picks the one whose own colour sits nearest
 the cloud decks the generator authored, so a giant written down as deep blue methane comes back blue.
