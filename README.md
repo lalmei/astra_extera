@@ -9,12 +9,14 @@ Worlds are not dropped into a random starfield. The save first draws a Milky Way
 - Deterministic galaxy + galactocentric location from the Vintage Story world seed
 - Galactic habitable zone with `[Fe/H]` floors for iron and ores. Spirals are the common hosts; giant ellipticals are rare and use a spheroid shell outside the dense core instead of a thin disk.
 - Playable worlds are Earth analogs: ~1 Rearth, ~1 g, Earth-like bulk iron / core fraction, and Earth-like temperature derived from the host star
-- A local system: K/G/F host (M allowed for moons), liquid-water orbit, shepherd giant past the snow line, optional inner rocky and ice giant. Moons keep a Roche-safe day under 7 Earth days
+- A local system: K/G/F host (M allowed for moons), liquid-water orbit, shepherd giant past the snow line, up to three inner rocky worlds, an optional second gas giant and one or two ice giants beyond it. Every body is Hill-separated from the ones already placed. Moons keep a Roche-safe day under 7 Earth days
+- Giants are authored bodies rather than markers: an obliquity, a rotation period and the banding it whips up, a long-lived storm parked between two jets, a ring system in the planet's equatorial plane, and a family of moons outside the rings. Rings carry a composition -- ice, rock and dust, or sooted debris -- which sets how bright and how coloured they read
 - Companion planets, leftover comets, and comet-fed meteor showers authored into AstraTerra's sky. Earth's wanderers are replaced, not mixed in.
 - Save-game persistence of the galaxy, the sampled star catalog, and the local-system sky; the join packet carries all three so clients render the stored sky instead of sampling again
 - A visible star catalog sampled from the galaxy's own stellar density, exported in AstraTerra's `star-catalog.v1.json` shape
 - `/astraextera galaxy` to inspect the authored site
-- **Ctrl+Shift+S** opens the in-game galaxy panel: the same facts, face-on and edge-on figures, and all-sky view as the HTML preview. The preview also draws the local star's habitable zone and full system.
+- **Ctrl+Shift+S** opens the in-game galaxy panel: the same facts, face-on and edge-on figures, all-sky view, habitable zone, full system and companion-planet portraits as the HTML preview.
+- The full-system figure compresses distance so the inner orbits stay readable next to an ice giant twenty times further out, and draws bodies at their real radii. The portrait strip below it draws each companion as a disc, with its bands, its storm, its moons, and its rings at the tilt and heading they run.
 - Unresolved galactic glow is broken into an equatorial cubemap and drawn behind AstraTerra's star billboards, so the band of light is on the sky rather than only on the preview PNG.
 - `make galaxy-preview` writes a random-seed static HTML preview (`dist/galaxy-preview.html`) and opens it. Pass `SEED=42` to pin a known test galaxy.
 - `make star-catalog` writes `dist/star-catalog.v1.json` without opening the preview.
@@ -52,6 +54,13 @@ mod (override with `ASTRA_TERRA`).
 Earth's guide groups, sky cultures and deep-sky objects are all keyed to Earth's own star ids and
 positions, so they are replaced with empty sets rather than pointed at unrelated stars. Regenerating
 deep-sky objects from the galaxy model is still open.
+
+A giant's rings reach the sky as brightness and nothing else, because AstraTerra draws every planet
+as a point of light: an open sheet of ring ice can add most of a magnitude, an edge-on or sooty ring
+adds nothing. A giant's cloud decks set its tint the same way, so the dot in the sky and the portrait
+in the panel are the same planet. Moons of a companion giant stay off the planet catalog for the same
+reason sibling moons do -- the ephemeris is heliocentric -- so they are recorded and drawn in the
+panel rather than rendered.
 
 Companion planets are the bodies already placed in the local system, on Keplerian tracks around this
 star. Comets are leftover ice the shepherd giant scattered, with authored return periods and a track

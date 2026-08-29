@@ -106,5 +106,5 @@ public sealed class GalaxyPanelDialog : GuiDialog
         => GalaxyPanelPainter.PaintFacts(ctx, currentBounds, placement, starField, localSky, scrollOffset);
 
     private void OnDrawFigures(Context ctx, ImageSurface surface, ElementBounds currentBounds)
-        => GalaxyPanelPainter.PaintFigures(ctx, currentBounds, placement, sky);
+        => GalaxyPanelPainter.PaintFigures(ctx, currentBounds, placement, sky, localSky);
 }

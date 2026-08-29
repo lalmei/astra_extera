@@ -151,14 +151,79 @@ public static class GalaxyFacts
             }
         }
 
+        if (placement.WorldKind == ObserverWorldKind.TerrestrialMoon && system.ParentGiantAppearance is { } parent)
+        {
+            rows.Add(new GalaxyFact("Parent giant face", DescribeFace(parent)));
+            if (parent.Ring is { } parentRing)
+            {
+                rows.Add(new GalaxyFact("Parent giant rings", DescribeRing(parentRing, parent)));
+            }
+        }
+
+        // Terms are the panel's own row labels, so two ice giants cannot share one. A role that
+        // appears more than once is numbered from the star outward.
+        var roleCounts = system.Companions
+            .GroupBy(static body => body.Role)
+            .ToDictionary(static group => group.Key, static group => group.Count());
+        var seen = new Dictionary<CompanionRole, int>();
+
         foreach (var body in system.Companions)
         {
+            seen[body.Role] = seen.GetValueOrDefault(body.Role) + 1;
+            var term = roleCounts[body.Role] > 1
+                ? $"{CompanionTerm(body.Role)} {seen[body.Role]}"
+                : CompanionTerm(body.Role);
+
             rows.Add(new GalaxyFact(
-                CompanionTerm(body.Role),
-                $"{F(body.SemiMajorAxisAu)} AU, {F(body.MassEarth)} M\u2295, year {F(body.OrbitalPeriodDays)} d"));
+                term,
+                $"{F(body.SemiMajorAxisAu)} AU, {F(body.MassEarth)} M\u2295, {F(body.RadiusEarth)} R\u2295, year {F(body.OrbitalPeriodDays)} d"));
+
+            if (body.Appearance is not { } appearance)
+            {
+                continue;
+            }
+
+            rows.Add(new GalaxyFact($"{term} face", DescribeFace(appearance)));
+
+            if (appearance.Ring is { } ring)
+            {
+                rows.Add(new GalaxyFact($"{term} rings", DescribeRing(ring, appearance)));
+            }
+
+            if (appearance.Storm is { } storm)
+            {
+                rows.Add(new GalaxyFact(
+                    $"{term} storm",
+                    $"{storm.Name}, a {F(storm.LongitudeSpanDeg)} degree anticyclone at {F(Math.Abs(storm.LatitudeDeg))} degrees " +
+                    $"{(storm.LatitudeDeg >= 0.0 ? "north" : "south")}, standing {storm.AgeYears:N0} years"));
+            }
+
+            if (body.Moons.Length > 0)
+            {
+                var largest = body.Moons.MaxBy(static moon => moon.RadiusEarth)!;
+                rows.Add(new GalaxyFact(
+                    $"{term} moons",
+                    $"{body.Moons.Length} moon{(body.Moons.Length == 1 ? string.Empty : "s")}, " +
+                    $"largest {largest.DisplayName} at {F(largest.OrbitalDistanceEarthRadii)} R\u2295, " +
+                    $"{F(largest.RadiusEarth)} R\u2295 across, month {F(largest.DayLengthDays)} d"));
+            }
         }
 
         return rows;
+    }
+
+    private static string DescribeFace(GiantAppearance appearance)
+        => $"{appearance.BandCount} bands, {F(appearance.RotationPeriodHours)} h day, " +
+           $"tipped {F(appearance.ObliquityDeg)} degrees{(appearance.Retrograde ? ", spinning backwards" : string.Empty)}";
+
+    private static string DescribeRing(PlanetRing ring, GiantAppearance appearance)
+    {
+        var openness = GiantAppearances.RingOpenness(appearance);
+        var seen = openness < 0.05 ? "seen edge-on" : openness < 0.35 ? "barely open" : "wide open";
+        return $"{ring.CompositionLabel} rings, {F(ring.InnerRadiusPlanetRadii)}-{F(ring.OuterRadiusPlanetRadii)} planet radii, " +
+               $"running {F(appearance.AscendingNodeDeg)} degrees from the orbital plane's node, {seen} " +
+               $"({F(-GiantAppearances.RingBrightnessBoostMagnitudes(appearance))} mag brighter)" +
+               $"{(ring.HasDivision ? $", divided at {F(ring.DivisionRadiusPlanetRadii)}" : string.Empty)}";
     }
 
     private static string CompanionTerm(CompanionRole role)
@@ -166,6 +231,7 @@ public static class GalaxyFacts
         {
             CompanionRole.InnerRocky => "Inner rocky",
             CompanionRole.ShepherdGiant => "Shepherd giant",
+            CompanionRole.OuterGasGiant => "Gas giant",
             CompanionRole.OuterIceGiant => "Ice giant",
             _ => role.ToString()
         };

@@ -67,7 +67,13 @@ public static class GalaxyDebugHtml
         html.AppendLine("</figure>");
         html.AppendLine("<figure><figcaption>Full system</figcaption>");
         html.AppendLine(LocalSystemSvg.RenderFullSystem(placement));
-        html.AppendLine("<p class=\"axis\">Fitted to the outermost planet. Marker sizes are not radii.</p>");
+        html.AppendLine("<p class=\"axis\">Fitted to the outermost planet, with distance compressed so the inner orbits stay readable. Body sizes follow radius, compressed the same way.</p>");
+        html.AppendLine("</figure>");
+        html.AppendLine("</section>");
+        html.AppendLine("<section class=\"portraits\">");
+        html.AppendLine("<figure><figcaption>Companion planets</figcaption>");
+        html.AppendLine(PlanetPortraitSvg.Render(placement, wanderers));
+        html.AppendLine("<p class=\"axis\">Discs are to scale against each other. Rings are drawn at the tilt and heading they run, moons above each planet, and a giant's long-lived storm on the band it is caught in.</p>");
         html.AppendLine("</figure>");
         html.AppendLine("</section>");
         html.AppendLine("<section class=\"facts\">");
@@ -109,6 +115,7 @@ public static class GalaxyDebugHtml
         figure { margin: 0; }
         figcaption { margin: 0 0 8px; color: var(--muted); font-size: 13px; }
         svg { display: block; width: 100%; height: auto; border: 1px solid var(--line); }
+        .portraits { margin: 0 0 32px; }
         .sky { margin: 0 0 32px; }
         .sky-stack { position: relative; border: 1px solid var(--line); background: #070b14; }
         .sky-stack img { display: block; width: 100%; height: auto; border: 0; }
