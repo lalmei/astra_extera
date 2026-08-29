@@ -15,9 +15,10 @@ namespace AstraExtera.Sync;
 /// </remarks>
 public static class NearBodyExport
 {
-    public static NearBodyCatalog Build(GalaxyPlacement placement)
+    public static NearBodyCatalog Build(GalaxyPlacement placement, CelestialTextureLibrary textures)
     {
         ArgumentNullException.ThrowIfNull(placement);
+        ArgumentNullException.ThrowIfNull(textures);
         var bodies = NearSky.Author(placement);
         if (bodies.Count == 0)
         {
@@ -31,8 +32,8 @@ public static class NearBodyExport
         foreach (var body in bodies)
         {
             var face = body.Role == NearBodyRole.ParentGiant
-                ? BodyFacePainter.PaintGiant(appearance, body.DiscFraction)
-                : BodyFacePainter.PaintMoon(moonsByIndex[body.SourceIndex], placement.WorldSeed);
+                ? BodyFacePainter.PaintGiant(textures, appearance, placement.WorldSeed)
+                : BodyFacePainter.PaintMoon(textures, moonsByIndex[body.SourceIndex], placement.WorldSeed);
 
             entries.Add(new NearBodyEntry(
                 body.Id,

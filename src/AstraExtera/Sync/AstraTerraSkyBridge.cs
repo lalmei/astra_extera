@@ -1,3 +1,4 @@
+using AstraExtera.Client;
 using AstraExtera.Galaxy;
 using AstraTerra;
 using AstraTerra.Astronomy;
@@ -19,11 +20,13 @@ namespace AstraExtera.Sync;
 public sealed class AstraTerraSkyBridge
 {
     private readonly ICoreClientAPI api;
+    private readonly CelestialTextureLibrary textures;
     private long? publishedSeed;
 
     public AstraTerraSkyBridge(ICoreClientAPI api)
     {
         this.api = api;
+        textures = new CelestialTextureLibrary(api);
     }
 
     public void Publish(GalaxySky sky)
@@ -67,7 +70,7 @@ public sealed class AstraTerraSkyBridge
 
         // A world that is itself a moon does not get Earth's moon: it gets the giant it orbits,
         // fixed in one spot because it is tidally locked to it, and its sibling moons.
-        var nearBodies = NearBodyExport.Build(sky.Placement);
+        var nearBodies = NearBodyExport.Build(sky.Placement, textures);
         astraTerra.ReplaceNearBodies(nearBodies);
 
         publishedSeed = sky.Placement.WorldSeed;
