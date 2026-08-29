@@ -11,14 +11,27 @@ namespace AstraExtera.Client;
 /// position is remembered.
 /// </summary>
 /// <remarks>
+/// <para>
 /// The facts outrun any sensible dialog height -- a system with several comets adds rows -- so they
 /// live in their own scrolling column while the figures stay put beside them.
+/// </para>
+/// <para>
+/// Both columns are dynamic custom draws. A static one is composed onto the dialog's own surface,
+/// where the drawing has to place itself; a dynamic one gets a texture of its own with its origin at
+/// the element, which is the frame both painters draw in.
+/// </para>
+/// <para>
+/// The all-sky panorama is marched off the main thread, because it is seconds of work and the game
+/// loop is not the place for it. The panel opens straight away with that one box saying so, and
+/// redraws itself when the render lands.
+/// </para>
 /// </remarks>
 public sealed class GalaxyPanelDialog : GuiDialog
 {
     public const string ComposerName = "astraextera-galaxy-panel";
 
     private const string FactsKey = "astraextera-galaxy-facts";
+    private const string FiguresKey = "astraextera-galaxy-figures";
     private const string ScrollbarKey = "astraextera-galaxy-scroll";
 
     /// <summary>
@@ -31,11 +44,12 @@ public sealed class GalaxyPanelDialog : GuiDialog
     private readonly GalaxyPlacement placement;
     private readonly StarField starField;
     private readonly LocalSystemSky localSky;
-    private readonly byte[] sky;
     private readonly double factsHeight;
 
     private ElementBounds factsBounds = null!;
     private double scrollOffset;
+    private byte[]? sky;
+    private bool disposed;
 
     public GalaxyPanelDialog(ICoreClientAPI capi, GalaxySky authored)
         : base(capi)
@@ -87,13 +101,49 @@ public sealed class GalaxyPanelDialog : GuiDialog
             .AddDialogTitleBar(GalaxyFacts.PanelTitle(placement), () => TryClose())
             .AddDynamicCustomDraw(factsBounds, OnDrawFacts, FactsKey)
             .AddVerticalScrollbar(OnScroll, scrollbarBounds, ScrollbarKey)
-            .AddStaticCustomDraw(figuresBounds, OnDrawFigures)
+            .AddDynamicCustomDraw(figuresBounds, OnDrawFigures, FiguresKey)
             .Compose();
 
         // The scrollbar needs both heights in the same units the bounds use, so it knows how much of
         // the column is off-screen.
         SingleComposer.GetScrollbar(ScrollbarKey)
             .SetHeights((float)GalaxyPanelPainter.DesignHeight, (float)factsHeight);
+    }
+
+    /// <summary>
+    /// Marches the all-sky glow on a worker thread and hands the result back to the main thread,
+    /// which is the only one allowed to touch the composer.
+    /// </summary>
+    private void BeginSkyRender()
+    {
+        var forPlacement = placement;
+        var forStars = starField;
+        Task.Run(() =>
+        {
+            byte[] rendered;
+            try
+            {
+                rendered = GalaxySkyView.RenderRgb(forPlacement, forStars);
+            }
+            catch (Exception exception)
+            {
+                capi.Logger.Warning("AstraExtera could not render the galaxy panel's all-sky view: {0}", exception);
+                return;
+            }
+
+            capi.Event.EnqueueMainThreadTask(() => OnSkyRendered(rendered), "astraextera-galaxy-sky");
+        });
+    }
+
+    private void OnSkyRendered(byte[] rendered)
+    {
+        if (disposed)
+        {
+            return;
+        }
+
+        sky = rendered;
+        SingleComposer?.GetCustomDraw(FiguresKey)?.Redraw();
     }
 
     private void OnScroll(float value)
