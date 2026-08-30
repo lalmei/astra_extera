@@ -198,6 +198,48 @@ public sealed class CelestialTextureTests
         Assert.True(above > 0 && below > 0, $"the ring is missing on one side: {above} vs {below}");
     }
 
+    /// <summary>
+    /// The game filters this texture when it draws it, and filtering mixes colour without regard to
+    /// alpha. A transparent black pixel beside the planet's rim therefore gets blended into the rim
+    /// and draws a dark line round the planet, which is exactly what it did.
+    /// </summary>
+    [Fact]
+    public void Nothing_Transparent_Beside_The_Planet_Is_Left_Black_To_Bleed_Into_It()
+    {
+        var manifest = LoadManifest();
+        var face = CelestialFaceComposer.Compose(
+            Source(manifest.Giants.First()),
+            ring: null,
+            ringRecord: null,
+            authoredRing: null,
+            openness: 0.0,
+            rollRadians: 0.0,
+            size: 256);
+
+        // Walk out along a row until the globe ends, then check the first transparent pixels past
+        // it carry the globe's colour rather than black.
+        var centre = 128;
+        var edge = 0;
+        for (var x = centre; x < 256; x++)
+        {
+            if (Alpha(face, x, centre) == 0)
+            {
+                edge = x;
+                break;
+            }
+        }
+
+        Assert.True(edge > centre, "the globe never ended");
+        for (var x = edge; x < Math.Min(edge + 3, 256); x++)
+        {
+            var pixel = face.Pixels[(centre * face.Size) + x];
+            Assert.Equal(0, CelestialFaceComposer.Alpha(pixel));
+            Assert.True(
+                CelestialFaceComposer.Red(pixel) > 20,
+                $"the pixel at {x} is transparent black, and will bleed a dark rim into the planet");
+        }
+    }
+
     [Fact]
     public void A_Body_With_No_Artwork_Still_Gets_A_Face()
     {

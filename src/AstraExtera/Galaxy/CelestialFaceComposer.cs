@@ -45,6 +45,15 @@ public static class CelestialFaceComposer
     public const double FaceMargin = 0.98;
 
     /// <summary>
+    /// How far the body's colour is pushed out into the transparent pixels around it. The game
+    /// filters this texture when it draws it, and filtering mixes colour without regard to alpha:
+    /// a rim pixel blended against transparent black comes out dark, which draws a black line round
+    /// the planet. Filling the margin with the colour of the nearest lit pixel leaves nothing dark
+    /// out there to mix in.
+    /// </summary>
+    public const int EdgeBleedPasses = 4;
+
+    /// <summary>
     /// How wide the seam is where the ring passes behind the globe, in face pixels. The two halves
     /// of a ring meet along its major axis, and a hard cut there leaves a one-pixel stair down the
     /// side of the planet; each half is faded across this instead.
@@ -84,6 +93,7 @@ public static class CelestialFaceComposer
             DrawRing(pixels, size, ring!, ringRecord!, faceRadius, openness, rollRadians, front: true);
         }
 
+        BleedEdges(pixels, size, EdgeBleedPasses);
         return new CelestialFace(size, pixels, discFraction);
     }
 
@@ -114,6 +124,69 @@ public static class CelestialFaceComposer
         }
 
         return new CelestialFace(size, pixels, FaceMargin);
+    }
+
+    /// <summary>
+    /// Gives every transparent pixel beside a drawn one the same colour, while leaving it fully
+    /// transparent. Nothing about the picture changes; what changes is what the filter finds when it
+    /// reaches past the edge.
+    /// </summary>
+    internal static void BleedEdges(int[] pixels, int size, int passes)
+    {
+        for (var pass = 0; pass < passes; pass++)
+        {
+            var grown = false;
+            var previous = (int[])pixels.Clone();
+            for (var y = 0; y < size; y++)
+            {
+                for (var x = 0; x < size; x++)
+                {
+                    var index = (y * size) + x;
+                    if (previous[index] != 0)
+                    {
+                        continue;
+                    }
+
+                    int red = 0, green = 0, blue = 0, found = 0;
+                    for (var dy = -1; dy <= 1; dy++)
+                    {
+                        for (var dx = -1; dx <= 1; dx++)
+                        {
+                            var nx = x + dx;
+                            var ny = y + dy;
+                            if (nx < 0 || ny < 0 || nx >= size || ny >= size)
+                            {
+                                continue;
+                            }
+
+                            var neighbour = previous[(ny * size) + nx];
+                            if (neighbour == 0)
+                            {
+                                continue;
+                            }
+
+                            red += Red(neighbour);
+                            green += Green(neighbour);
+                            blue += Blue(neighbour);
+                            found++;
+                        }
+                    }
+
+                    if (found > 0)
+                    {
+                        // Colour only: the pixel stays invisible, and only lends its colour to
+                        // whatever the filter blends across the edge.
+                        pixels[index] = Pack(red / found, green / found, blue / found, 0);
+                        grown = true;
+                    }
+                }
+            }
+
+            if (!grown)
+            {
+                return;
+            }
+        }
     }
 
     private static void DrawGlobe(int[] pixels, int size, CelestialSource globe, double globeRadius)
