@@ -31,6 +31,7 @@ help:
 	@printf "  make galaxy-preview SEED=42  Same, pinned to seed 42\n"
 	@printf "  make star-catalog            Write $(STAR_CATALOG) without opening the preview\n"
 	@printf "  make celestial-textures      Rebuild the shipped planet, moon and ring textures from the source art\n"
+	@printf "                               Giants come from gas_giants.png, moons from image.png, rings from ring_assets.zip\n"
 	@printf "  make star-catalog SEED=42    Same, pinned to seed 42\n"
 
 test:
