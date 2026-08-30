@@ -29,6 +29,10 @@ from PIL import Image
 
 GIANT_SIZE = 512
 MOON_SIZE = 64
+
+# A moon drawn on its own arrives far larger than a cell of the contact sheet, and is worth
+# keeping at more than sheet size. Still small: a sibling moon is under a degree in the sky.
+BIG_MOON_SIZE = 128
 RING_SIZE = 512
 
 # How far a pixel must sit from the sheet's background colour to count as part of a body.
@@ -37,8 +41,9 @@ BODY_THRESHOLD = 12
 # The sheet's own captions: any blob smaller than this is lettering, not a world.
 MIN_BODY_PIXELS = 900
 
-# How many giants the mod ships. More is only more variety, and each one is a megabyte.
+# How many of each the mod ships. More is only more variety, and each one costs its own space.
 MAX_GIANTS = 12
+MAX_MOONS = 54
 
 # Where in the spread of measured radii a body's true edge is taken to be.
 RADIUS_PERCENTILE = 12
@@ -203,6 +208,24 @@ def disc_at(mask: np.ndarray, centre_y: float, centre_x: float) -> tuple[float, 
     # attached to the body -- contamination only ever adds, so the truth sits near the bottom.
     # A sheet with paper down one whole side of a planet can spoil a third of its rays.
     return centre_x, centre_y, float(np.percentile(radii, RADIUS_PERCENTILE))
+
+
+def read_singles(pattern: str, limit: int) -> list[tuple[np.ndarray, tuple[float, float, float]]]:
+    """Renders of one body each, in name order.
+
+    A body drawn on its own arrives several times the size of a cell on a contact sheet and
+    needs no separating from its neighbours, so these are always preferred. Supply a full set
+    and the sheet stops being read for that kind at all.
+    """
+    found: list[tuple[np.ndarray, tuple[float, float, float]]] = []
+    for path in sorted(Path().glob(pattern))[:limit]:
+        rgba = np.array(Image.open(path).convert("RGBA"))
+        bodies = find_bodies(body_mask(rgba[..., :3], rgba[..., 3]))
+        if not bodies:
+            print(f"  skipped {path}: nothing in it looks like a body")
+            continue
+        found.append((rgba[..., :3], max(bodies, key=lambda circle: circle[2])))
+    return found
 
 
 def read_sheet(path: Path) -> tuple[np.ndarray, list[tuple[float, float, float]]]:
@@ -409,6 +432,11 @@ def main() -> None:
         default="gas_giant_*.png",
         help="Glob of single-planet renders, each one giant. These are preferred over the sheet.",
     )
+    parser.add_argument(
+        "--moon-files",
+        default="moons_*.png",
+        help="Glob of single-moon renders, each one moon. These are preferred over the sheet.",
+    )
     parser.add_argument("--moon-sheet", type=Path, default=Path("image.png"))
     parser.add_argument("--rings", type=Path, default=Path("ring_assets.zip"))
     parser.add_argument("--out", type=Path, default=Path("assets/astraextera/textures/celestial"))
@@ -431,27 +459,18 @@ def main() -> None:
     # A render of one planet on its own beats a cell of a contact sheet -- it arrives several
     # times the size and needs no separating -- so those are taken first and the sheet only
     # makes up the numbers. Hand over twelve of them and the sheet stops being used at all.
-    singles = [
-        (np.array(Image.open(path).convert("RGBA")), path)
-        for path in sorted(Path().glob(arguments.giant_files))
-    ]
     sheet_giants = sorted(
         (circle for circle in giant_circles if circle[2] > 75),
         key=lambda circle: (int(circle[1]) // 200, circle[0]),
     )
-    giants: list[tuple[np.ndarray, tuple[float, float, float]]] = []
-    for rgba_single, path in singles[:MAX_GIANTS]:
-        found = find_bodies(body_mask(rgba_single[..., :3], rgba_single[..., 3]))
-        if not found:
-            print(f"  skipped {path}: no body found in it")
-            continue
-        giants.append((rgba_single[..., :3], max(found, key=lambda circle: circle[2])))
-
+    giants = read_singles(arguments.giant_files, MAX_GIANTS)
     giants += [(giant_sheet, circle) for circle in sheet_giants][: MAX_GIANTS - len(giants)]
-    moons = sorted(
+    sheet_moons = sorted(
         (circle for circle in moon_circles if 15 < circle[2] <= 75),
         key=lambda circle: (int(circle[1]) // 60, circle[0]),
     )
+    moons = read_singles(arguments.moon_files, MAX_MOONS)
+    moons += [(moon_sheet, circle) for circle in sheet_moons][: MAX_MOONS - len(moons)]
 
     for index, (pixels, circle) in enumerate(giants, start=1):
         image, colour = cut_disc(pixels, circle, GIANT_SIZE)
@@ -461,8 +480,8 @@ def main() -> None:
             TextureRecord(name, f"{name}.png", "giant", *[round(c, 4) for c in colour], round(1.0 / DISC_MARGIN, 4))
         )
 
-    for index, circle in enumerate(moons, start=1):
-        image, colour = cut_disc(moon_sheet, circle, MOON_SIZE)
+    for index, (pixels, circle) in enumerate(moons, start=1):
+        image, colour = cut_disc(pixels, circle, BIG_MOON_SIZE if circle[2] >= 64 else MOON_SIZE)
         name = f"moon-{index:02d}"
         image.save(arguments.out / f"{name}.png", optimize=True)
         records.append(
