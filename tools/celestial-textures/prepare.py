@@ -429,12 +429,12 @@ def main() -> None:
     parser.add_argument("--sheet", type=Path, default=Path("gas_giants.png"))
     parser.add_argument(
         "--giant-files",
-        default="gas_giant_*.png",
+        default="gas_giant*_*.png",
         help="Glob of single-planet renders, each one giant. These are preferred over the sheet.",
     )
     parser.add_argument(
         "--moon-files",
-        default="moons_*.png",
+        default="moon*_*.png",
         help="Glob of single-moon renders, each one moon. These are preferred over the sheet.",
     )
     parser.add_argument("--moon-sheet", type=Path, default=Path("image.png"))
