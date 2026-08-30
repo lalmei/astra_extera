@@ -1,3 +1,5 @@
+using AstraTerra.Astronomy;
+
 namespace AstraExtera.Galaxy;
 
 /// <summary>What a near body is: the world's parent giant, or one of its sibling moons.</summary>
@@ -8,16 +10,38 @@ public enum NearBodyRole
 }
 
 /// <summary>
+/// The orbit a sibling moon is on, for the bodies that go round the giant rather than hanging still.
+/// </summary>
+/// <param name="AnchorHourAngleDeg">Where the giant hangs, which is what the sibling is placed against.</param>
+/// <param name="DistanceRatio">The sibling's orbit over the home moon's, both about the giant.</param>
+/// <param name="PhaseDeg">How far ahead of home the sibling sits on its orbit at day zero.</param>
+/// <param name="PhaseRateDegPerDay">
+/// How fast that lead changes per world day: <c>360 * (homePeriod / siblingPeriod - 1)</c>.
+/// </param>
+public sealed record SiblingOrbit(
+    double AnchorHourAngleDeg,
+    double DistanceRatio,
+    double PhaseDeg,
+    double PhaseRateDegPerDay);
+
+/// <summary>
 /// One body close enough to show a disc, placed for the tidally locked world that watches it.
 /// </summary>
 /// <param name="AngularDiameterDeg">
-/// The whole drawn face, rings included, as seen from the observer's world.
+/// The whole drawn face, rings included, as seen from the observer's world. For a sibling this is
+/// the width at the giant's own distance; the drawn width follows the distance from there.
 /// </param>
 /// <param name="DiscFraction">The globe itself as a fraction of that face; 1 when there are no rings.</param>
-/// <param name="HourAngleDeg">Where on the sky it hangs, measured west from the meridian.</param>
+/// <param name="HourAngleDeg">Where on the sky it hangs at day zero, measured west from the meridian.</param>
 /// <param name="HourAngleRateDegPerDay">
-/// How fast it drifts across the sky in world days. Zero for the parent giant, which a locked world
-/// keeps in one place; 360 would be the rate of the sun.
+/// How fast it drifts across the sky in world days, averaged over a synodic period. Zero for the
+/// parent giant, which a locked world keeps in one place; 360 would be the rate of the sun. A
+/// sibling's real motion is not this flat rate -- see <paramref name="Orbit"/>.
+/// </param>
+/// <param name="Orbit">
+/// The orbit a sibling is actually placed from, and null for the giant, which does not move. It
+/// supersedes the fixed hour angle and rate above, which then only say where the body starts and
+/// how fast it comes round on average.
 /// </param>
 /// <param name="RingOpenness">
 /// How far open this body's rings look from here, as the ellipse's short axis over its long one. Near
@@ -34,7 +58,8 @@ public sealed record NearBody(
     double HourAngleRateDegPerDay,
     double DeclinationDeg,
     double Brightness,
-    double RingOpenness);
+    double RingOpenness,
+    SiblingOrbit? Orbit = null);
 
 /// <summary>
 /// The sky of a world that is itself a moon: the giant it orbits, and its sibling moons.
@@ -47,9 +72,17 @@ public sealed record NearBody(
 /// midnight and dark at noon. Everything else in this sky moves; that one thing does not.
 /// </para>
 /// <para>
-/// Sibling moons drift past it at the rate the two orbits beat against each other. An inner sibling
-/// laps the observer and slides one way, an outer one falls behind and slides the other, and the sun
-/// is the limiting case of an infinitely distant sibling that goes round once a day.
+/// Sibling moons drift past it at the rate the two orbits beat against each other -- an inner one
+/// laps the observer, an outer one falls behind -- but only the outer ones go right round the sky.
+/// A sibling closer in than the observer is bound to the giant the way Venus is bound to the sun:
+/// its direction swings back and forth about the giant out to an elongation of <c>asin(q)</c> and no
+/// further, so a moon well inside the observer's orbit lives out its whole life on the giant's face
+/// and rings, transiting it and passing behind it. The sun is the far limit of the same geometry: an
+/// infinitely distant sibling, going round once a day.
+/// </para>
+/// <para>
+/// That is why a sibling carries its orbit rather than a drift rate. A rate can only circulate, and
+/// half these bodies do not.
 /// </para>
 /// <para>
 /// Nothing here draws. The geometry is worked out from the stored placement so it can be tested
@@ -128,25 +161,38 @@ public static class NearSky
                 continue;
             }
 
+            // Whether a body is worth a disc at all is asked of a typical day rather than of the
+            // day it passes closest, so the set of moons drawn does not depend on where they
+            // happen to stand.
             var separation = MeanSeparationEarthRadii(homeOrbit, moon.OrbitalDistanceEarthRadii);
-            var angular = AngularDiameterDeg(moon.RadiusEarth, separation);
-            if (angular < MinAngularDiameterDeg)
+            if (AngularDiameterDeg(moon.RadiusEarth, separation) < MinAngularDiameterDeg)
             {
                 continue;
             }
+
+            var orbit = new SiblingOrbit(
+                hourAngle,
+                DistanceRatio: moon.OrbitalDistanceEarthRadii / homeOrbit,
+                PhaseDeg: rng.NextRange(0.0, 360.0),
+                PhaseRateDegPerDay: PhaseRateDegPerDay(homePeriod, moon.DayLengthDays));
 
             bodies.Add(new NearBody(
                 $"sibling-moon-{moon.Index}",
                 NearBodyRole.SiblingMoon,
                 moon.Index,
                 moon.DisplayName,
-                angular,
+                // Drawn at the giant's distance and scaled from there, so the swing in how far off
+                // a sibling is reaches the size it draws at.
+                AngularDiameterDeg(moon.RadiusEarth, homeOrbit),
                 DiscFraction: 1.0,
-                HourAngleDeg: rng.NextRange(0.0, 360.0),
+                HourAngleDeg: StartingHourAngleDeg(orbit),
                 HourAngleRateDegPerDay: HourAngleRateDegPerDay(homePeriod, moon.DayLengthDays),
-                DeclinationDeg: declination + rng.NextRange(-6.0, 6.0),
+                // Coplanar to a fraction of a degree, so a sibling runs along the giant's own ring
+                // line rather than wandering off it.
+                DeclinationDeg: declination + rng.NextRange(-inclination, inclination),
                 Brightness: rng.NextRange(0.40, 0.62),
-                RingOpenness: 0.0));
+                RingOpenness: 0.0,
+                orbit));
         }
 
         return bodies;
@@ -180,27 +226,48 @@ public static class NearSky
         => distance <= 0.0 ? 0.0 : 2.0 * Math.Atan(radius / distance) * 180.0 / Math.PI;
 
     /// <summary>
-    /// How fast a sibling drifts across the locked world's sky, in degrees per world day.
+    /// How fast a sibling drifts across the locked world's sky on average, in degrees per world day.
     /// </summary>
     /// <remarks>
     /// One world day is one orbit of the giant, so the observer's own frame turns once a day. A
     /// sibling's direction turns at its own orbital rate, and what reaches the sky is the difference:
     /// zero for a body that keeps station with us, and the full 360 a day for something infinitely
-    /// far off -- which is exactly what the sun does.
+    /// far off -- which is exactly what the sun does. This is the average of that over a synodic
+    /// period, and only an infinitely distant sibling actually holds it from moment to moment: what
+    /// places a sibling is its orbit.
     /// </remarks>
     public static double HourAngleRateDegPerDay(double homePeriodDays, double siblingPeriodDays)
+        => -PhaseRateDegPerDay(homePeriodDays, siblingPeriodDays);
+
+    /// <summary>
+    /// How fast a sibling pulls ahead of the observer on its own orbit, in degrees per world day.
+    /// </summary>
+    /// <remarks>
+    /// This, not the mean drift above, is what places a sibling. An inner one runs ahead and an
+    /// outer one falls behind, and turning that lead into a direction on the sky is the step that
+    /// keeps an inner sibling pinned to the giant instead of sending it round the whole sky.
+    /// </remarks>
+    public static double PhaseRateDegPerDay(double homePeriodDays, double siblingPeriodDays)
     {
         if (homePeriodDays <= 0.0 || siblingPeriodDays <= 0.0)
         {
             return 0.0;
         }
 
-        return 360.0 * (1.0 - (homePeriodDays / siblingPeriodDays));
+        return 360.0 * ((homePeriodDays / siblingPeriodDays) - 1.0);
+    }
+
+    /// <summary>Where an orbiting sibling stands at day zero, measured west from the meridian.</summary>
+    public static double StartingHourAngleDeg(SiblingOrbit orbit)
+    {
+        ArgumentNullException.ThrowIfNull(orbit);
+        var elongation = NearBodyRenderModel.ElongationDeg(orbit.DistanceRatio, orbit.PhaseDeg);
+        return CelestialMath.NormalizeDegrees(orbit.AnchorHourAngleDeg + elongation);
     }
 
     /// <summary>
     /// Typical distance between two moons on coplanar circular orbits: the root-mean-square over a
-    /// full synodic cycle, which is what a body drawn at one fixed size should be drawn at.
+    /// full synodic cycle, which is the distance to ask whether a body is worth drawing at.
     /// </summary>
     public static double MeanSeparationEarthRadii(double homeOrbit, double siblingOrbit)
         => Math.Sqrt((homeOrbit * homeOrbit) + (siblingOrbit * siblingOrbit));

@@ -1,4 +1,5 @@
 using AstraExtera.Galaxy;
+using AstraTerra.Astronomy;
 using Xunit;
 
 namespace AstraExtera.Tests.Galaxy;
@@ -65,9 +66,10 @@ public sealed class NearSkyTests
     }
 
     /// <summary>
-    /// The drift rate is the beat between the two orbits, so a sibling goes right round the sky once
-    /// per synodic period -- and the sun, which is the same problem with an infinitely distant
-    /// sibling, goes round once a day.
+    /// The mean drift is the beat between the two orbits: one turn's worth of sky per synodic
+    /// period -- and the sun, which is the same problem with an infinitely distant sibling, goes
+    /// round once a day. Only an outer sibling actually completes that turn; see
+    /// <see cref="An_Inner_Sibling_Never_Leaves_The_Giant"/>.
     /// </summary>
     [Theory]
     [InlineData(1.0, 2.0)]
@@ -165,6 +167,99 @@ public sealed class NearSkyTests
         var placement = PlacementOfKind(ObserverWorldKind.TerrestrialMoon);
 
         Assert.Equal(NearSky.Author(placement), NearSky.Author(placement));
+    }
+
+    /// <summary>
+    /// A sibling closer in than the home moon cannot leave the giant: it swings about it out to
+    /// <c>asin(q)</c> and back, the way Venus never leaves the sun. Drifting it round the sky at a
+    /// flat rate -- which is what the placement used to do -- put moons in the midnight sky that
+    /// physically spend their whole lives on the giant's face.
+    /// </summary>
+    [Fact]
+    public void An_Inner_Sibling_Never_Leaves_The_Giant()
+    {
+        var seen = 0;
+        for (long seed = 1; seed <= 256; seed++)
+        {
+            var placement = GalaxyGenerator.Generate(seed);
+            if (placement.WorldKind != ObserverWorldKind.TerrestrialMoon)
+            {
+                continue;
+            }
+
+            var bodies = NearSky.Author(placement);
+            var giant = bodies.Single(static body => body.Role == NearBodyRole.ParentGiant);
+            foreach (var sibling in bodies.Where(static body => body.Orbit is { DistanceRatio: < 1.0 }))
+            {
+                seen++;
+                var orbit = sibling.Orbit!;
+                var greatestElongation = Math.Asin(orbit.DistanceRatio) * 180.0 / Math.PI;
+                for (var step = 0; step < 360; step++)
+                {
+                    var elongation = NearBodyRenderModel.ElongationDeg(orbit.DistanceRatio, step);
+                    Assert.InRange(Math.Abs(elongation), 0.0, greatestElongation + 1e-9);
+                }
+
+                // And it starts somewhere on that arc rather than anywhere on the sky.
+                var fromGiant = Math.Abs(CelestialMath.NormalizeDegrees(sibling.HourAngleDeg - giant.HourAngleDeg + 180.0) - 180.0);
+                Assert.InRange(fromGiant, 0.0, greatestElongation + 1e-9);
+            }
+        }
+
+        Assert.True(seen > 0, "no moon world in 256 seeds had an inner sibling");
+    }
+
+    /// <summary>
+    /// The orbit is what places a sibling, so it has to be the same orbit the generator wrote down:
+    /// the ratio of the two radii, and a lead that changes at the beat between the two periods.
+    /// </summary>
+    [Fact]
+    public void A_Siblings_Orbit_Is_The_One_The_System_Gave_It()
+    {
+        var placement = PlacementOfKind(ObserverWorldKind.TerrestrialMoon);
+        var home = placement.System.MoonOrbitalDistanceEarthRadii!.Value;
+        var moons = placement.System.Moons.ToDictionary(static moon => moon.Index);
+
+        var siblings = NearSky.Author(placement).Where(static body => body.Role == NearBodyRole.SiblingMoon).ToList();
+        Assert.NotEmpty(siblings);
+
+        foreach (var sibling in siblings)
+        {
+            var moon = moons[sibling.SourceIndex];
+            var orbit = Assert.IsType<SiblingOrbit>(sibling.Orbit);
+
+            Assert.Equal(moon.OrbitalDistanceEarthRadii / home, orbit.DistanceRatio, 9);
+            Assert.Equal(NearSky.PhaseRateDegPerDay(1.0, moon.DayLengthDays), orbit.PhaseRateDegPerDay, 9);
+            Assert.InRange(orbit.PhaseDeg, 0.0, 360.0);
+
+            // An inner sibling runs ahead of us, an outer one falls behind.
+            Assert.Equal(orbit.DistanceRatio < 1.0, orbit.PhaseRateDegPerDay > 0.0);
+
+            // The width is quoted at the giant's distance, so the renderer can scale it from there.
+            Assert.Equal(NearSky.AngularDiameterDeg(moon.RadiusEarth, home), sibling.AngularDiameterDeg, 9);
+        }
+    }
+
+    /// <summary>The giant does not move, so it has no orbit to be placed from.</summary>
+    [Fact]
+    public void The_Giant_Is_Placed_By_Hand_And_Not_By_An_Orbit()
+    {
+        var bodies = NearSky.Author(PlacementOfKind(ObserverWorldKind.TerrestrialMoon));
+
+        Assert.Null(bodies.Single(static body => body.Role == NearBodyRole.ParentGiant).Orbit);
+    }
+
+    /// <summary>
+    /// The mean drift is still the beat between the orbits -- it is what a sibling averages over a
+    /// synodic period -- and it runs the opposite way from the lead that produces it.
+    /// </summary>
+    [Fact]
+    public void The_Mean_Drift_Is_The_Lead_Rate_Turned_Round()
+    {
+        Assert.Equal(-NearSky.PhaseRateDegPerDay(1.0, 4.0), NearSky.HourAngleRateDegPerDay(1.0, 4.0), 9);
+        Assert.Equal(360.0 * (2.0 - 1.0), NearSky.PhaseRateDegPerDay(1.0, 0.5), 9);
+        Assert.Equal(0.0, NearSky.PhaseRateDegPerDay(1.0, 0.0));
+        Assert.Equal(0.0, NearSky.PhaseRateDegPerDay(0.0, 1.0));
     }
 
     private static GalaxyPlacement PlacementOfKind(ObserverWorldKind kind)
