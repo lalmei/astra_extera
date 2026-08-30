@@ -67,8 +67,13 @@ at noon. It sits off the meridian rather than on it, because a giant on the sun'
 eclipse the sun every single day.
 
 Sibling moons drift past it at the rate the two orbits beat against each other: an inner one laps
-the world and slides one way, an outer one falls behind and slides the other. The sun is the
-limiting case of an infinitely distant sibling, going round once a day.
+the world, an outer one falls behind. Only the outer ones go right round the sky, and not at an even
+rate -- they hang near the giant while they are round the far side of it and swing through fastest
+as they pass close, swelling as they come. A sibling closer in than this world never leaves the
+giant at all: it is bound to it the way Venus is bound to the sun, swinging out to an elongation of
+`asin(orbit ratio)` and back, so it lives out its life on the giant's face and rings, crossing in
+front and passing behind. The sun is the far limit of the same geometry -- an infinitely distant
+sibling, going round once a day, evenly.
 
 The rings are a line, not an ellipse. A habitable moon is a regular satellite -- it formed in the
 disc that became the rings, which is why it is locked at all -- so it orbits inside the ring plane

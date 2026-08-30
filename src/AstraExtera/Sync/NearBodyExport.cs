@@ -44,7 +44,14 @@ public static class NearBodyExport
                 body.HourAngleRateDegPerDay,
                 body.DeclinationDeg,
                 body.Brightness,
-                face));
+                face,
+                body.Orbit is { } orbit
+                    ? new NearBodyOrbit(
+                        orbit.AnchorHourAngleDeg,
+                        orbit.DistanceRatio,
+                        orbit.PhaseDeg,
+                        orbit.PhaseRateDegPerDay)
+                    : null));
         }
 
         return new NearBodyCatalog(NearBodyCatalog.CurrentSchemaVersion, HidesVanillaMoon: true, entries);
