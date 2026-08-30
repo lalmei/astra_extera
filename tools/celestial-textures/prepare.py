@@ -37,21 +37,28 @@ BODY_THRESHOLD = 12
 # The sheet's own captions: any blob smaller than this is lettering, not a world.
 MIN_BODY_PIXELS = 900
 
+# How many giants the mod ships. More is only more variety, and each one is a megabyte.
+MAX_GIANTS = 12
+
+# Where in the spread of measured radii a body's true edge is taken to be.
+RADIUS_PERCENTILE = 12
+
 # Depths tried when telling bodies apart, in pixels.
 EROSION_LADDER = (2, 6, 12, 20, 30)
 
-# How far the limb may be divided back up when the baked shading is flattened. Without a
-# floor the darkest rim pixels amplify their own noise into a bright speckled ring.
-MIN_VIGNETTE = 0.42
+# How far the limb may be divided back up when the baked shading is flattened. The floor is
+# deliberately high: pushing a dark rim back up by more than half again amplifies whatever
+# faint structure is in it into a fan of spokes. Anything shaded harder than this is not
+# corrected at all -- it is past the point of being colour, and gets continued from inside.
+MIN_VIGNETTE = 0.70
 
 # Margin left around a cut-out body, as a multiple of its radius.
 DISC_MARGIN = 1.06
 
-# How far out the render's own colour is trusted. Past this the sphere it was lit as has
-# fallen away to almost nothing, and dividing that back up amplifies its noise rather than
-# recovering anything; the last band is filled from the colour just inside it instead. The
-# mod darkens the limb itself, from where the sun actually is.
-LIMB_TRUST = 0.92
+# How much of the disc is the render's own colour. The rest is its antialiased fringe, where
+# the picture has already faded into its background, and is continued from just inside so that
+# nothing dark is left to bleed into the rim.
+LIMB_TRUST = 0.985
 
 
 @dataclass
@@ -191,10 +198,11 @@ def disc_at(mask: np.ndarray, centre_y: float, centre_x: float) -> tuple[float, 
             last = r
         radii.append(last)
 
-    # A low percentile, not the median. A clean disc gives the same radius in every direction,
-    # and the only thing that can lengthen a ray is the sheet's own paper still attached to the
-    # body -- contamination only ever adds, so the answer lies at the bottom of the spread.
-    return centre_x, centre_y, float(np.percentile(radii, 30))
+    # Well down the spread, not the median. A clean disc gives the same radius in every
+    # direction, and the only thing that can lengthen a ray is the sheet's own paper still
+    # attached to the body -- contamination only ever adds, so the truth sits near the bottom.
+    # A sheet with paper down one whole side of a planet can spoil a third of its rays.
+    return centre_x, centre_y, float(np.percentile(radii, RADIUS_PERCENTILE))
 
 
 def read_sheet(path: Path) -> tuple[np.ndarray, list[tuple[float, float, float]]]:
@@ -223,6 +231,27 @@ def find_bodies(mask: np.ndarray) -> list[tuple[float, float, float]]:
             best = found
 
     return [disc_at(mask, (y0 + y1) / 2.0, (x0 + x1) / 2.0) for x0, y0, x1, y1 in best]
+
+
+def extend_limb(rgb: np.ndarray, distance: np.ndarray, trust: float) -> np.ndarray:
+    """Continue the disc's colour straight outward along each radius.
+
+    Everything past `trust` is taken from the last pixel that was believed on the same line
+    out of the centre. Spreading it sideways instead -- growing the mask a pixel at a time --
+    leaves a faint octagon of spokes around the rim, because eight neighbours are not a
+    circle. Radii are, and a globe's own bands run along them.
+    """
+    height, width, _ = rgb.shape
+    centre_y = (height - 1) / 2.0
+    centre_x = (width - 1) / 2.0
+    ys, xs = np.mgrid[0:height, 0:width]
+    offset_y = ys - centre_y
+    offset_x = xs - centre_x
+
+    pull = np.where(distance > trust, trust / np.maximum(distance, 1e-6), 1.0)
+    source_y = np.clip(np.round(centre_y + offset_y * pull).astype(int), 0, height - 1)
+    source_x = np.clip(np.round(centre_x + offset_x * pull).astype(int), 0, width - 1)
+    return rgb[source_y, source_x]
 
 
 def cut_disc(
@@ -255,12 +284,19 @@ def cut_disc(
         if band.any():
             profile[step] = luminance[band].mean()
     profile /= max(profile[:6].mean(), 1e-6)
+
+    # Only the last sliver is reconstructed. Continuing a limb inward-out over any real width
+    # smears the bands it crosses into a fan of wedges, which is worse than the shading it was
+    # trying to remove; a render lit too hard for the gentle correction below simply keeps some
+    # of its own limb darkening, and the mod's darkening lands on top of it.
+    trust = LIMB_TRUST
+
     profile = np.clip(profile, MIN_VIGNETTE, 4.0)
     correction = np.interp(np.clip(distance, 0, 0.999) * 24.0, np.arange(24), profile)
     flattened = np.clip(crop / correction[..., None], 0, 255)
 
     alpha = np.clip((1.0 - distance) * radius * 1.5 + 0.5, 0.0, 1.0) * 255.0
-    bled = bleed_edges(flattened, distance < LIMB_TRUST, passes=int(radius * 0.2) + 6)
+    bled = extend_limb(flattened, distance, trust)
     rgba = np.dstack([bled, alpha]).astype(np.uint8)
     image = Image.fromarray(rgba, "RGBA").resize((size, size), Image.LANCZOS)
 
@@ -368,6 +404,11 @@ def prepare_ring(path: Path, size: int) -> tuple[Image.Image, RingRecord]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sheet", type=Path, default=Path("gas_giants.png"))
+    parser.add_argument(
+        "--giant-files",
+        default="gas_giant_*.png",
+        help="Glob of single-planet renders, each one giant. These are preferred over the sheet.",
+    )
     parser.add_argument("--moon-sheet", type=Path, default=Path("image.png"))
     parser.add_argument("--rings", type=Path, default=Path("ring_assets.zip"))
     parser.add_argument("--out", type=Path, default=Path("assets/astraextera/textures/celestial"))
@@ -387,17 +428,33 @@ def main() -> None:
         else read_sheet(arguments.moon_sheet)
     )
 
-    giants = sorted(
+    # A render of one planet on its own beats a cell of a contact sheet -- it arrives several
+    # times the size and needs no separating -- so those are taken first and the sheet only
+    # makes up the numbers. Hand over twelve of them and the sheet stops being used at all.
+    singles = [
+        (np.array(Image.open(path).convert("RGBA")), path)
+        for path in sorted(Path().glob(arguments.giant_files))
+    ]
+    sheet_giants = sorted(
         (circle for circle in giant_circles if circle[2] > 75),
         key=lambda circle: (int(circle[1]) // 200, circle[0]),
     )
+    giants: list[tuple[np.ndarray, tuple[float, float, float]]] = []
+    for rgba_single, path in singles[:MAX_GIANTS]:
+        found = find_bodies(body_mask(rgba_single[..., :3], rgba_single[..., 3]))
+        if not found:
+            print(f"  skipped {path}: no body found in it")
+            continue
+        giants.append((rgba_single[..., :3], max(found, key=lambda circle: circle[2])))
+
+    giants += [(giant_sheet, circle) for circle in sheet_giants][: MAX_GIANTS - len(giants)]
     moons = sorted(
         (circle for circle in moon_circles if 15 < circle[2] <= 75),
         key=lambda circle: (int(circle[1]) // 60, circle[0]),
     )
 
-    for index, circle in enumerate(giants, start=1):
-        image, colour = cut_disc(giant_sheet, circle, GIANT_SIZE)
+    for index, (pixels, circle) in enumerate(giants, start=1):
+        image, colour = cut_disc(pixels, circle, GIANT_SIZE)
         name = f"gas-giant-{index:02d}"
         image.save(arguments.out / f"{name}.png", optimize=True)
         records.append(
