@@ -229,7 +229,14 @@ def read_singles(pattern: str, limit: int) -> list[tuple[np.ndarray, tuple[float
 
 
 def read_sheet(path: Path) -> tuple[np.ndarray, list[tuple[float, float, float]]]:
-    """A sheet's colour, and the circle around every body on it."""
+    """A sheet's colour, and the circle around every body on it.
+
+    A missing sheet is not an error. Sheets are only ever there to make up the numbers, and
+    once enough bodies have been drawn one at a time the sheet they replaced can go.
+    """
+    if not path.exists():
+        return np.zeros((1, 1, 3), dtype=np.uint8), []
+
     rgba = np.array(Image.open(path).convert("RGBA"))
     sheet = rgba[..., :3]
     return sheet, find_bodies(body_mask(sheet, rgba[..., 3]))
