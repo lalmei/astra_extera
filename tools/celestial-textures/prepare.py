@@ -44,6 +44,12 @@ MIN_VIGNETTE = 0.42
 # Margin left around a cut-out body, as a multiple of its radius.
 DISC_MARGIN = 1.06
 
+# How far out the render's own colour is trusted. Past this the sphere it was lit as has
+# fallen away to almost nothing, and dividing that back up amplifies its noise rather than
+# recovering anything; the last band is filled from the colour just inside it instead. The
+# mod darkens the limb itself, from where the sun actually is.
+LIMB_TRUST = 0.92
+
 
 @dataclass
 class TextureRecord:
@@ -96,6 +102,35 @@ def components(mask: np.ndarray, min_pixels: int) -> list[tuple[int, int, int, i
     return [(x0, y0, x1, y1) for _, x0, y0, x1, y1 in found]
 
 
+def bleed_edges(rgb: np.ndarray, inside: np.ndarray, passes: int = 10) -> np.ndarray:
+    """Push the body's own colour out into the transparent margin around it.
+
+    The sheet's background is black, and resizing an image with straight alpha mixes the
+    colour channels without regard to it -- so a rim pixel ends up part planet, part
+    background, and the planet comes out with a dark line drawn round it. The game's own
+    texture filtering does the same thing again at draw time. Neither can be stopped, but
+    both stop mattering once there is no black out there to mix in: the margin is filled
+    with the colour of the nearest lit pixel, and stays fully transparent while it does it.
+    """
+    filled = inside.copy()
+    out = rgb.copy()
+    out[~filled] = 0.0
+    for _ in range(passes):
+        if filled.all():
+            break
+        total = np.zeros_like(out)
+        count = np.zeros(filled.shape, dtype=float)
+        for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)):
+            shifted = np.roll(np.roll(out, dy, axis=0), dx, axis=1)
+            valid = np.roll(np.roll(filled, dy, axis=0), dx, axis=1)
+            total += shifted * valid[..., None]
+            count += valid
+        grow = (~filled) & (count > 0)
+        out[grow] = total[grow] / count[grow, None]
+        filled |= grow
+    return out
+
+
 def cut_disc(sheet: np.ndarray, box: tuple[int, int, int, int], size: int) -> tuple[Image.Image, tuple[float, float, float]]:
     """Crop one body, give it a circular alpha, and divide out its baked limb darkening."""
     x0, y0, x1, y1 = box
@@ -130,7 +165,8 @@ def cut_disc(sheet: np.ndarray, box: tuple[int, int, int, int], size: int) -> tu
     flattened = np.clip(crop / correction[..., None], 0, 255)
 
     alpha = np.clip((1.0 - distance) * radius * 1.5 + 0.5, 0.0, 1.0) * 255.0
-    rgba = np.dstack([flattened, alpha]).astype(np.uint8)
+    bled = bleed_edges(flattened, distance < LIMB_TRUST, passes=int(radius * 0.2) + 6)
+    rgba = np.dstack([bled, alpha]).astype(np.uint8)
     image = Image.fromarray(rgba, "RGBA").resize((size, size), Image.LANCZOS)
 
     inner = distance < 0.82
