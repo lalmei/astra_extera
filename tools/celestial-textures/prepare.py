@@ -26,6 +26,7 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image
+from scipy.ndimage import find_objects, label
 
 GIANT_SIZE = 512
 MOON_SIZE = 64
@@ -48,6 +49,9 @@ MAX_MOONS = 54
 # Where in the spread of measured radii a body's true edge is taken to be.
 RADIUS_PERCENTILE = 12
 
+# Directions a body's reach is measured in.
+RAY_COUNT = 360
+
 # Depths tried when telling bodies apart, in pixels.
 EROSION_LADDER = (2, 6, 12, 20, 30)
 
@@ -56,6 +60,9 @@ EROSION_LADDER = (2, 6, 12, 20, 30)
 # faint structure is in it into a fan of spokes. Anything shaded harder than this is not
 # corrected at all -- it is past the point of being colour, and gets continued from inside.
 MIN_VIGNETTE = 0.70
+
+# How soft a body's own edge is drawn, in output pixels.
+EDGE_FEATHER_PX = 1.5
 
 # Margin left around a cut-out body, as a multiple of its radius.
 DISC_MARGIN = 1.06
@@ -113,30 +120,17 @@ def body_mask(sheet: np.ndarray, alpha: np.ndarray | None = None) -> np.ndarray:
 
 def components(mask: np.ndarray, min_pixels: int) -> list[tuple[int, int, int, int]]:
     """Bounding boxes of the connected blobs in `mask`, largest first."""
-    height, width = mask.shape
-    seen = np.zeros_like(mask, dtype=bool)
-    found: list[tuple[int, int, int, int, int]] = []
-    for y in range(height):
-        for x in range(width):
-            if not mask[y, x] or seen[y, x]:
-                continue
-            queue = deque([(y, x)])
-            seen[y, x] = True
-            count = 0
-            min_x = max_x = x
-            min_y = max_y = y
-            while queue:
-                cy, cx = queue.popleft()
-                count += 1
-                min_x, max_x = min(min_x, cx), max(max_x, cx)
-                min_y, max_y = min(min_y, cy), max(max_y, cy)
-                for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)):
-                    ny, nx = cy + dy, cx + dx
-                    if 0 <= ny < height and 0 <= nx < width and mask[ny, nx] and not seen[ny, nx]:
-                        seen[ny, nx] = True
-                        queue.append((ny, nx))
-            if count >= min_pixels:
-                found.append((count, min_x, min_y, max_x, max_y))
+    labels, count = label(mask, structure=np.ones((3, 3), dtype=int))
+    if count == 0:
+        return []
+
+    found = []
+    for index, bounds in enumerate(find_objects(labels), start=1):
+        rows, columns = bounds
+        area = int((labels[bounds] == index).sum())
+        if area >= min_pixels:
+            found.append((area, columns.start, rows.start, columns.stop - 1, rows.stop - 1))
+
     found.sort(key=lambda blob: blob[0], reverse=True)
     return [(x0, y0, x1, y1) for _, x0, y0, x1, y1 in found]
 
@@ -182,64 +176,92 @@ def erode(mask: np.ndarray, radius: int) -> np.ndarray:
 
 
 def disc_at(mask: np.ndarray, centre_y: float, centre_x: float) -> tuple[float, float, float]:
-    """Fit the circle around a centre by walking outward until the mask ends.
+    """Fit the circle around a centre by how far the body reaches in each direction.
 
-    Rays rather than a bounding box, because a sheet's own gutters and captions can touch a
-    planet and stretch its box; the median over hundreds of directions ignores the few that
-    run off down a gutter.
+    Directions rather than a bounding box, because a sheet's own gutters and captions can
+    touch a body and stretch its box. Taking a low percentile of the reach then ignores the
+    few directions that run off down a gutter: a clean disc reaches the same distance every
+    way, and only something still attached to it can reach further.
     """
-    height, width = mask.shape
-    reach = int(math.hypot(height, width))
-    radii = []
-    for step in range(360):
-        angle = step * math.pi / 180.0
-        dy, dx = math.sin(angle), math.cos(angle)
-        last = 0.0
-        for r in range(1, reach):
-            y = int(round(centre_y + dy * r))
-            x = int(round(centre_x + dx * r))
-            if not (0 <= y < height and 0 <= x < width) or not mask[y, x]:
-                break
-            last = r
-        radii.append(last)
+    ys, xs = np.nonzero(mask)
+    if len(ys) == 0:
+        return centre_x, centre_y, 0.0
 
-    # Well down the spread, not the median. A clean disc gives the same radius in every
-    # direction, and the only thing that can lengthen a ray is the sheet's own paper still
-    # attached to the body -- contamination only ever adds, so the truth sits near the bottom.
-    # A sheet with paper down one whole side of a planet can spoil a third of its rays.
-    return centre_x, centre_y, float(np.percentile(radii, RADIUS_PERCENTILE))
+    offset_y = ys - centre_y
+    offset_x = xs - centre_x
+    reach = np.hypot(offset_y, offset_x)
+    heading = ((np.arctan2(offset_y, offset_x) + math.pi) / (2 * math.pi) * RAY_COUNT).astype(int) % RAY_COUNT
+
+    furthest = np.zeros(RAY_COUNT)
+    np.maximum.at(furthest, heading, reach)
+    measured = furthest[furthest > 0]
+    if len(measured) == 0:
+        return centre_x, centre_y, 0.0
+
+    return centre_x, centre_y, float(np.percentile(measured, RADIUS_PERCENTILE))
 
 
-def read_singles(pattern: str, limit: int) -> list[tuple[np.ndarray, tuple[float, float, float]]]:
+def extend_limb(rgb: np.ndarray, distance: np.ndarray, trust: float) -> np.ndarray:
+    """Continue the disc's colour straight outward along each radius.
+
+    Everything past `trust` is taken from the last pixel that was believed on the same line
+    out of the centre. Spreading it sideways instead -- growing the mask a pixel at a time --
+    leaves a faint octagon of spokes around the rim, because eight neighbours are not a
+    circle. Radii are, and a globe's own bands run along them.
+    """
+    height, width, _ = rgb.shape
+    centre_y = (height - 1) / 2.0
+    centre_x = (width - 1) / 2.0
+    ys, xs = np.mgrid[0:height, 0:width]
+    offset_y = ys - centre_y
+    offset_x = xs - centre_x
+
+    pull = np.where(distance > trust, trust / np.maximum(distance, 1e-6), 1.0)
+    source_y = np.clip(np.round(centre_y + offset_y * pull).astype(int), 0, height - 1)
+    source_x = np.clip(np.round(centre_x + offset_x * pull).astype(int), 0, width - 1)
+    return rgb[source_y, source_x]
+
+
+def read_singles(
+    pattern: str,
+    limit: int,
+) -> list[tuple[np.ndarray, tuple[float, float, float], np.ndarray]]:
     """Renders of one body each, in name order.
 
     A body drawn on its own arrives several times the size of a cell on a contact sheet and
     needs no separating from its neighbours, so these are always preferred. Supply a full set
     and the sheet stops being read for that kind at all.
     """
-    found: list[tuple[np.ndarray, tuple[float, float, float]]] = []
+    found: list[tuple[np.ndarray, tuple[float, float, float], np.ndarray]] = []
     for path in sorted(Path().glob(pattern))[:limit]:
         rgba = np.array(Image.open(path).convert("RGBA"))
-        bodies = find_bodies(body_mask(rgba[..., :3], rgba[..., 3]))
-        if not bodies:
+        mask = body_mask(rgba[..., :3], rgba[..., 3])
+        if not mask.any():
             print(f"  skipped {path}: nothing in it looks like a body")
             continue
-        found.append((rgba[..., :3], max(bodies, key=lambda circle: circle[2])))
+
+        # One render, one body: there is nothing here to tell apart, so the whole mask is it.
+        rows, columns = np.nonzero(mask)
+        found.append((
+            rgba[..., :3],
+            disc_at(mask, rows.mean(), columns.mean()),
+            rgba[..., 3],
+        ))
     return found
 
 
-def read_sheet(path: Path) -> tuple[np.ndarray, list[tuple[float, float, float]]]:
+def read_sheet(path: Path) -> tuple[np.ndarray, list[tuple[float, float, float]], np.ndarray]:
     """A sheet's colour, and the circle around every body on it.
 
     A missing sheet is not an error. Sheets are only ever there to make up the numbers, and
     once enough bodies have been drawn one at a time the sheet they replaced can go.
     """
     if not path.exists():
-        return np.zeros((1, 1, 3), dtype=np.uint8), []
+        return np.zeros((1, 1, 3), dtype=np.uint8), [], np.zeros((1, 1), dtype=np.uint8)
 
     rgba = np.array(Image.open(path).convert("RGBA"))
     sheet = rgba[..., :3]
-    return sheet, find_bodies(body_mask(sheet, rgba[..., 3]))
+    return sheet, find_bodies(body_mask(sheet, rgba[..., 3])), rgba[..., 3]
 
 
 def find_bodies(mask: np.ndarray) -> list[tuple[float, float, float]]:
@@ -260,7 +282,19 @@ def find_bodies(mask: np.ndarray) -> list[tuple[float, float, float]]:
         if len(found) > len(best):
             best = found
 
-    return [disc_at(mask, (y0 + y1) / 2.0, (x0 + x1) / 2.0) for x0, y0, x1, y1 in best]
+    # Each body is measured inside its own box. Measuring across the whole sheet would let a
+    # body's neighbours count as part of its reach, which is how a moon came out the size of
+    # the gap to the next one.
+    circles = []
+    for x0, y0, x1, y1 in best:
+        patch = mask[y0 : y1 + 1, x0 : x1 + 1]
+        rows, columns = np.nonzero(patch)
+        if len(rows) == 0:
+            continue
+        _, _, radius = disc_at(patch, rows.mean(), columns.mean())
+        circles.append((x0 + columns.mean(), y0 + rows.mean(), radius))
+
+    return circles
 
 
 def extend_limb(rgb: np.ndarray, distance: np.ndarray, trust: float) -> np.ndarray:
@@ -288,6 +322,7 @@ def cut_disc(
     sheet: np.ndarray,
     circle: tuple[float, float, float],
     size: int,
+    source_alpha: np.ndarray | None = None,
 ) -> tuple[Image.Image, tuple[float, float, float]]:
     """Crop one body, give it a circular alpha, and divide out its baked limb darkening."""
     centre_x, centre_y, radius = circle
@@ -325,10 +360,35 @@ def cut_disc(
     correction = np.interp(np.clip(distance, 0, 0.999) * 24.0, np.arange(24), profile)
     flattened = np.clip(crop / correction[..., None], 0, 255)
 
-    alpha = np.clip((1.0 - distance) * radius * 1.5 + 0.5, 0.0, 1.0) * 255.0
+    # A feathered edge, not a hard cut. The cut is made at full source size and then shrunk,
+    # so a step of one source pixel is a fraction of an output one -- and a circle stepping
+    # like that is a circle with teeth, which is exactly what a telescope shows. The feather is
+    # sized so it survives the shrink as about a pixel and a half of output.
+    feather = max(1.0, EDGE_FEATHER_PX * (half * 2.0) / size)
+    alpha = np.clip(((radius - (distance * radius)) / feather) + 0.5, 0.0, 1.0)
+
+    # Where the render brought its own cutout, that is the better edge of the two: it knows
+    # where the artist put the planet. The circle only ever crops it further.
+    if source_alpha is not None:
+        cut = np.zeros((span, span), dtype=float)
+        patch = source_alpha[max(0, top):top + span, max(0, left):left + span].astype(float)
+        cut[: patch.shape[0], : patch.shape[1]] = patch
+
+        # Normalised against its own interior: a render whose body is 252 rather than 255 opaque
+        # would otherwise leave the planet very slightly see-through, and the stars behind it
+        # faintly visible through solid rock.
+        inside = distance < 0.8
+        solid = max(1.0, float(np.median(cut[inside])) if inside.any() else 255.0)
+        alpha = np.minimum(alpha, np.clip(cut / solid, 0.0, 1.0))
+
+    alpha *= 255.0
     bled = extend_limb(flattened, distance, trust)
-    rgba = np.dstack([bled, alpha]).astype(np.uint8)
-    image = Image.fromarray(rgba, "RGBA").resize((size, size), Image.LANCZOS)
+    # Colour and coverage are shrunk with different filters on purpose. Lanczos keeps detail in
+    # the bands, but it overshoots and undershoots around an edge, and an alpha that undershoots
+    # is a planet you can see the stars through. Coverage takes a plain area average instead.
+    colour = Image.fromarray(bled.astype(np.uint8), "RGB").resize((size, size), Image.LANCZOS)
+    coverage = Image.fromarray(alpha.astype(np.uint8), "L").resize((size, size), Image.BOX)
+    image = Image.merge("RGBA", (*colour.split(), coverage))
 
     inner = distance < 0.82
     mean = crop[inner].reshape(-1, 3).mean(axis=0) / 255.0
@@ -456,9 +516,9 @@ def main() -> None:
 
     # Giants and moons come off different sheets: the giants were redrawn larger and on their
     # own, while the moons are still on the original contact sheet they arrived with.
-    giant_sheet, giant_circles = read_sheet(arguments.sheet)
-    moon_sheet, moon_circles = (
-        (giant_sheet, giant_circles)
+    giant_sheet, giant_circles, giant_sheet_alpha = read_sheet(arguments.sheet)
+    moon_sheet, moon_circles, moon_sheet_alpha = (
+        (giant_sheet, giant_circles, giant_sheet_alpha)
         if arguments.moon_sheet == arguments.sheet
         else read_sheet(arguments.moon_sheet)
     )
@@ -471,24 +531,26 @@ def main() -> None:
         key=lambda circle: (int(circle[1]) // 200, circle[0]),
     )
     giants = read_singles(arguments.giant_files, MAX_GIANTS)
-    giants += [(giant_sheet, circle) for circle in sheet_giants][: MAX_GIANTS - len(giants)]
+    giants += [(giant_sheet, circle, giant_sheet_alpha) for circle in sheet_giants][: MAX_GIANTS - len(giants)]
     sheet_moons = sorted(
         (circle for circle in moon_circles if 15 < circle[2] <= 75),
         key=lambda circle: (int(circle[1]) // 60, circle[0]),
     )
     moons = read_singles(arguments.moon_files, MAX_MOONS)
-    moons += [(moon_sheet, circle) for circle in sheet_moons][: MAX_MOONS - len(moons)]
+    moons += [(moon_sheet, circle, moon_sheet_alpha) for circle in sheet_moons][: MAX_MOONS - len(moons)]
 
-    for index, (pixels, circle) in enumerate(giants, start=1):
-        image, colour = cut_disc(pixels, circle, GIANT_SIZE)
+    for index, (pixels, circle, alpha) in enumerate(giants, start=1):
+        image, colour = cut_disc(pixels, circle, GIANT_SIZE, alpha)
         name = f"gas-giant-{index:02d}"
         image.save(arguments.out / f"{name}.png", optimize=True)
         records.append(
             TextureRecord(name, f"{name}.png", "giant", *[round(c, 4) for c in colour], round(1.0 / DISC_MARGIN, 4))
         )
 
-    for index, (pixels, circle) in enumerate(moons, start=1):
-        image, colour = cut_disc(pixels, circle, BIG_MOON_SIZE if circle[2] >= 64 else MOON_SIZE)
+    for index, (pixels, circle, alpha) in enumerate(moons, start=1):
+        image, colour = cut_disc(
+            pixels, circle, BIG_MOON_SIZE if circle[2] >= 64 else MOON_SIZE, alpha
+        )
         name = f"moon-{index:02d}"
         image.save(arguments.out / f"{name}.png", optimize=True)
         records.append(
