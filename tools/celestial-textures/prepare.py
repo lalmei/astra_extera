@@ -27,15 +27,18 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-GIANT_SIZE = 256
+GIANT_SIZE = 512
 MOON_SIZE = 64
 RING_SIZE = 512
 
-# Below this share of the sheet's brightest pixel a pixel is background rather than a body.
+# How far a pixel must sit from the sheet's background colour to count as part of a body.
 BODY_THRESHOLD = 12
 
 # The sheet's own captions: any blob smaller than this is lettering, not a world.
 MIN_BODY_PIXELS = 900
+
+# Depths tried when telling bodies apart, in pixels.
+EROSION_LADDER = (2, 6, 12, 20, 30)
 
 # How far the limb may be divided back up when the baked shading is flattened. Without a
 # floor the darkest rim pixels amplify their own noise into a bright speckled ring.
@@ -70,6 +73,30 @@ class RingRecord(TextureRecord):
     outer_radius_fraction: float = 0.0
     inner_radius_fraction: float = 0.0
     baked_openness: float = 0.0
+
+
+def body_mask(sheet: np.ndarray, alpha: np.ndarray | None = None) -> np.ndarray:
+    """Which pixels of a contact sheet are a body rather than the paper it sits on.
+
+    Sheets arrive on black, on white, or on nothing at all, depending on what drew them.
+    An alpha channel, when there is a real one, says so outright and is believed. Otherwise
+    the background is read off the corners -- no sheet yet has had a planet in one -- and a
+    pixel counts as a body when it is far enough from that colour.
+    """
+    if alpha is not None and alpha.min() < 20 and (alpha < 20).mean() > 0.02:
+        return alpha > 128
+
+    height, width, _ = sheet.shape
+    patch = max(2, min(height, width) // 100)
+    corners = np.concatenate([
+        sheet[:patch, :patch].reshape(-1, 3),
+        sheet[:patch, -patch:].reshape(-1, 3),
+        sheet[-patch:, :patch].reshape(-1, 3),
+        sheet[-patch:, -patch:].reshape(-1, 3),
+    ])
+    background = np.median(corners, axis=0)
+    distance = np.abs(sheet.astype(float) - background).sum(axis=2)
+    return distance > BODY_THRESHOLD * 3
 
 
 def components(mask: np.ndarray, min_pixels: int) -> list[tuple[int, int, int, int]]:
@@ -131,12 +158,80 @@ def bleed_edges(rgb: np.ndarray, inside: np.ndarray, passes: int = 10) -> np.nda
     return out
 
 
-def cut_disc(sheet: np.ndarray, box: tuple[int, int, int, int], size: int) -> tuple[Image.Image, tuple[float, float, float]]:
+def erode(mask: np.ndarray, radius: int) -> np.ndarray:
+    """Shrink a mask by a few pixels, to snap the threads between things that touch."""
+    out = mask.copy()
+    for _ in range(radius):
+        shrunk = out.copy()
+        for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            shrunk &= np.roll(np.roll(out, dy, axis=0), dx, axis=1)
+        out = shrunk
+    return out
+
+
+def disc_at(mask: np.ndarray, centre_y: float, centre_x: float) -> tuple[float, float, float]:
+    """Fit the circle around a centre by walking outward until the mask ends.
+
+    Rays rather than a bounding box, because a sheet's own gutters and captions can touch a
+    planet and stretch its box; the median over hundreds of directions ignores the few that
+    run off down a gutter.
+    """
+    height, width = mask.shape
+    reach = int(math.hypot(height, width))
+    radii = []
+    for step in range(360):
+        angle = step * math.pi / 180.0
+        dy, dx = math.sin(angle), math.cos(angle)
+        last = 0.0
+        for r in range(1, reach):
+            y = int(round(centre_y + dy * r))
+            x = int(round(centre_x + dx * r))
+            if not (0 <= y < height and 0 <= x < width) or not mask[y, x]:
+                break
+            last = r
+        radii.append(last)
+
+    # A low percentile, not the median. A clean disc gives the same radius in every direction,
+    # and the only thing that can lengthen a ray is the sheet's own paper still attached to the
+    # body -- contamination only ever adds, so the answer lies at the bottom of the spread.
+    return centre_x, centre_y, float(np.percentile(radii, 30))
+
+
+def read_sheet(path: Path) -> tuple[np.ndarray, list[tuple[float, float, float]]]:
+    """A sheet's colour, and the circle around every body on it."""
+    rgba = np.array(Image.open(path).convert("RGBA"))
+    sheet = rgba[..., :3]
+    return sheet, find_bodies(body_mask(sheet, rgba[..., 3]))
+
+
+def find_bodies(mask: np.ndarray) -> list[tuple[float, float, float]]:
+    """Every body on a sheet, as a fitted circle.
+
+    Sheets are not always cut cleanly. One leaves opaque strips of its own paper between the
+    planets, welding all twelve into a single blob, and eroding the mask is what snaps those
+    threads. But erode too far and a sheet's small moons vanish altogether, so the amount is
+    not a constant: each depth is tried and the one that finds the most bodies wins, which is
+    a light touch on a clean sheet and a heavy one on a welded sheet.
+
+    The erosion is only ever used to tell bodies apart. Each one's real edge is then found by
+    walking outward from it across the original mask.
+    """
+    best: list[tuple[int, int, int, int]] = []
+    for depth in EROSION_LADDER:
+        found = components(erode(mask, depth), MIN_BODY_PIXELS)
+        if len(found) > len(best):
+            best = found
+
+    return [disc_at(mask, (y0 + y1) / 2.0, (x0 + x1) / 2.0) for x0, y0, x1, y1 in best]
+
+
+def cut_disc(
+    sheet: np.ndarray,
+    circle: tuple[float, float, float],
+    size: int,
+) -> tuple[Image.Image, tuple[float, float, float]]:
     """Crop one body, give it a circular alpha, and divide out its baked limb darkening."""
-    x0, y0, x1, y1 = box
-    centre_x = (x0 + x1) / 2.0
-    centre_y = (y0 + y1) / 2.0
-    radius = max(x1 - x0, y1 - y0) / 2.0
+    centre_x, centre_y, radius = circle
 
     # A square window a little wider than the body, so the rim keeps a transparent margin.
     half = radius * DISC_MARGIN
@@ -272,7 +367,8 @@ def prepare_ring(path: Path, size: int) -> tuple[Image.Image, RingRecord]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--sheet", type=Path, default=Path("image.png"))
+    parser.add_argument("--sheet", type=Path, default=Path("gas_giants.png"))
+    parser.add_argument("--moon-sheet", type=Path, default=Path("image.png"))
     parser.add_argument("--rings", type=Path, default=Path("ring_assets.zip"))
     parser.add_argument("--out", type=Path, default=Path("assets/astraextera/textures/celestial"))
     parser.add_argument("--manifest", type=Path, default=Path("assets/astraextera/config/celestial-textures.json"))
@@ -282,29 +378,34 @@ def main() -> None:
     arguments.manifest.parent.mkdir(parents=True, exist_ok=True)
     records: list[TextureRecord] = []
 
-    sheet = np.array(Image.open(arguments.sheet).convert("RGB"))
-    mask = sheet.sum(axis=2) > BODY_THRESHOLD * 3
-    blobs = components(mask, MIN_BODY_PIXELS)
+    # Giants and moons come off different sheets: the giants were redrawn larger and on their
+    # own, while the moons are still on the original contact sheet they arrived with.
+    giant_sheet, giant_circles = read_sheet(arguments.sheet)
+    moon_sheet, moon_circles = (
+        (giant_sheet, giant_circles)
+        if arguments.moon_sheet == arguments.sheet
+        else read_sheet(arguments.moon_sheet)
+    )
 
     giants = sorted(
-        (box for box in blobs if (box[2] - box[0]) > 150),
-        key=lambda box: (box[1] // 200, box[0]),
+        (circle for circle in giant_circles if circle[2] > 75),
+        key=lambda circle: (int(circle[1]) // 200, circle[0]),
     )
     moons = sorted(
-        (box for box in blobs if 30 < (box[2] - box[0]) <= 150),
-        key=lambda box: (box[1] // 60, box[0]),
+        (circle for circle in moon_circles if 15 < circle[2] <= 75),
+        key=lambda circle: (int(circle[1]) // 60, circle[0]),
     )
 
-    for index, box in enumerate(giants, start=1):
-        image, colour = cut_disc(sheet, box, GIANT_SIZE)
+    for index, circle in enumerate(giants, start=1):
+        image, colour = cut_disc(giant_sheet, circle, GIANT_SIZE)
         name = f"gas-giant-{index:02d}"
         image.save(arguments.out / f"{name}.png", optimize=True)
         records.append(
             TextureRecord(name, f"{name}.png", "giant", *[round(c, 4) for c in colour], round(1.0 / DISC_MARGIN, 4))
         )
 
-    for index, box in enumerate(moons, start=1):
-        image, colour = cut_disc(sheet, box, MOON_SIZE)
+    for index, circle in enumerate(moons, start=1):
+        image, colour = cut_disc(moon_sheet, circle, MOON_SIZE)
         name = f"moon-{index:02d}"
         image.save(arguments.out / f"{name}.png", optimize=True)
         records.append(
