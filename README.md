@@ -1,10 +1,20 @@
 # AstraExtera
 
+![AstraExtera](astra_extera.png)
+
 Vintage Story 1.22 mod. Depends on [AstraTerra](https://github.com/lalmei/astraterra) **v0.6.0 or newer** for the sky engine, then replaces Earth's catalog with a **server-authored** procedural sky so every player sees the same heavens.
 
 Worlds are not dropped into a random starfield. The save first draws a Milky Way analog, then a thin-disk location inside that galaxy's habitable annulus, and only keeps sites metal-rich enough for iron cores and ores. A host star and a habitable orbit come next, then the visible sky.
 
-## What is implemented
+> ### New in v0.1.0: every world gets its own sky
+>
+> AstraExtera's initial release gives a world an astronomical address before it gives it a sky. The world seed authors a galaxy, an Earth-like home, a local system, and the stars visible from that exact site; the server stores the result so every player joins the same heavens.
+>
+> Gas giants have cloud bands, storms, tilted rings, and families of moons. On a habitable moon, its parent giant hangs fixed in the sky while sibling moons cross its face and rings. Companion planets, comets, meteor showers, the galactic glow, and a world-specific celestial pole replace the familiar Earth sky rather than mixing with it.
+>
+> Press **Ctrl+Shift+S** to inspect the authored galaxy and system in-game, or use `/astraextera galaxy` for the facts in text.
+
+## Features
 
 - Deterministic galaxy + galactocentric location from the Vintage Story world seed
 - Galactic habitable zone with `[Fe/H]` floors for iron and ores. Spirals are the common hosts; giant ellipticals are rare and use a spheroid shell outside the dense core instead of a thin disk.

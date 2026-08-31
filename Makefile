@@ -17,7 +17,7 @@ PACKAGE_FILE = $(DIST_DIR)/AstraExtera-$(MOD_VERSION).zip
 GALAXY_PREVIEW := $(DIST_DIR)/galaxy-preview.html
 STAR_CATALOG := $(DIST_DIR)/star-catalog.v1.json
 
-.PHONY: help test build package deploy run deploy-run galaxy-preview star-catalog celestial-textures
+.PHONY: help test build package deploy run deploy-run galaxy-preview star-catalog celestial-textures moddb-preview moddb-copy
 
 help:
 	@printf "Targets:\n"
@@ -33,6 +33,8 @@ help:
 	@printf "  make celestial-textures      Rebuild the shipped planet, moon and ring textures from the source art\n"
 	@printf "                               Giants from gas_giant*_NNN.png, moons from image.png, rings from ring_assets.zip\n"
 	@printf "  make star-catalog SEED=42    Same, pinned to seed 42\n"
+	@printf "  make moddb-preview           Render the ModDB description locally and open it\n"
+	@printf "  make moddb-copy              Copy the paste-ready ModDB description to the clipboard\n"
 
 test:
 	@env $(DOTNET_ENV) dotnet test tests/AstraExtera.Tests/AstraExtera.Tests.csproj -c $(CONFIGURATION) -v minimal
@@ -69,3 +71,16 @@ celestial-textures:
 star-catalog:
 	@mkdir -p "$(DIST_DIR)"
 	@env $(DOTNET_ENV) dotnet run --project tools/GalaxyPreview/GalaxyPreview.csproj -c $(CONFIGURATION) -- --out "$(GALAXY_PREVIEW)" $(if $(SEED),--seed $(SEED),)
+
+MODDB_SOURCE := docs/moddb-description.html
+MODDB_PREVIEW := $(DIST_DIR)/moddb-preview.html
+
+$(MODDB_PREVIEW): $(MODDB_SOURCE) tools/moddb_preview.py
+	@python3 tools/moddb_preview.py --out "$(MODDB_PREVIEW)" >/dev/null
+
+moddb-preview: $(MODDB_PREVIEW)
+	@open "$(MODDB_PREVIEW)"
+
+moddb-copy:
+	@python3 tools/moddb_preview.py --paste | pbcopy
+	@printf "Paste-ready ModDB description copied to the clipboard\n"
