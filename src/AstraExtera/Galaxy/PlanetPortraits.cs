@@ -188,6 +188,32 @@ public static class PlanetPortraits
     }
 
     /// <summary>
+    /// How far a portrait reaches to either side of its centre: the ring ellipse as it is actually
+    /// drawn, which is the half-width the layout keeps inside the body's own slot.
+    /// </summary>
+    /// <remarks>
+    /// A ring rolled on end is a tall sliver rather than a wide one, so its outer radius is not what
+    /// it takes up across the page. Measuring the projected ellipse is what
+    /// <see cref="Layout(LocalSystem, double)"/> shrinks against, and this is the same measurement
+    /// taken from a laid-out portrait.
+    /// </remarks>
+    public static double RingHalfWidth(PlanetPortrait portrait)
+    {
+        ArgumentNullException.ThrowIfNull(portrait);
+        if (!portrait.HasRing)
+        {
+            return portrait.DiscPx;
+        }
+
+        var major = portrait.RingOuterPx;
+        var minor = major * portrait.RingOpenness;
+        var sin = Math.Sin(portrait.RingRollRad);
+        var cos = Math.Cos(portrait.RingRollRad);
+        var halfWidth = Math.Sqrt((major * cos * major * cos) + (minor * sin * minor * sin));
+        return Math.Max(portrait.DiscPx, halfWidth);
+    }
+
+    /// <summary>
     /// How far a ring reaches above and below the disc, so labels and moons clear it. A ring rolled
     /// on end reaches as far up the page as it does across it.
     /// </summary>

@@ -128,7 +128,9 @@ public sealed class GiantAppearanceTests
                     bottom <= PlanetPortraits.ViewHeight + 0.5,
                     $"seed {seed}: a portrait ran off the bottom at {bottom:0.0}");
 
-                var halfWidth = portrait.HasRing ? portrait.RingOuterPx : portrait.DiscPx;
+                // The drawn ellipse, not the ring's outer radius: a ring rolled on end is a tall
+                // sliver, and the layout shrinks against what actually reaches across the slot.
+                var halfWidth = PlanetPortraits.RingHalfWidth(portrait);
                 Assert.True(
                     halfWidth <= (slotWidth * 0.5) + 0.5,
                     $"seed {seed}: a portrait ran into its neighbour by {halfWidth - (slotWidth * 0.5):0.0}");
