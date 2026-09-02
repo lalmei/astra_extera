@@ -2,11 +2,15 @@ using AstraTerra.Astronomy;
 
 namespace AstraExtera.Galaxy;
 
-/// <summary>What a near body is: the world's parent giant, or one of its sibling moons.</summary>
+/// <summary>
+/// What a near body is: the parent giant a moon world hangs beneath, one of that giant's other
+/// moons, or -- on a planet world -- a moon of the playable world itself.
+/// </summary>
 public enum NearBodyRole
 {
     ParentGiant = 0,
-    SiblingMoon = 1
+    SiblingMoon = 1,
+    HomeMoon = 2
 }
 
 /// <summary>
@@ -62,7 +66,8 @@ public sealed record NearBody(
     SiblingOrbit? Orbit = null);
 
 /// <summary>
-/// The sky of a world that is itself a moon: the giant it orbits, and its sibling moons.
+/// The near sky of the playable world: on a moon world the giant it orbits and its sibling moons,
+/// and on a planet world that planet's own moons.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -83,6 +88,12 @@ public sealed record NearBody(
 /// <para>
 /// That is why a sibling carries its orbit rather than a drift rate. A rate can only circulate, and
 /// half these bodies do not.
+/// </para>
+/// <para>
+/// A planet world is the ordinary case and the simpler one: its own moons rise and set, each on its
+/// own track and at its own month, and a rate is all any of them needs. Some worlds are authored
+/// with none, and then the night really is only stars -- which is the honest answer for such a
+/// world, and better than leaving Earth's moon hanging over it.
 /// </para>
 /// <para>
 /// Nothing here draws. The geometry is worked out from the stored placement so it can be tested
@@ -114,12 +125,19 @@ public static class NearSky
     public const double MinOrbitInclinationDeg = 0.03;
     public const double MaxOrbitInclinationDeg = 0.6;
 
+    /// <summary>
+    /// How far off the celestial equator a planet world's own moon is allowed to run. A moon of a
+    /// tilted world sits near its ecliptic rather than its equator, so it keeps a track of its own
+    /// somewhere in this band -- Earth's runs between 18 and 29 degrees, depending on the decade.
+    /// </summary>
+    public const double MaxHomeMoonDeclinationDeg = 28.0;
+
     public static IReadOnlyList<NearBody> Author(GalaxyPlacement placement)
     {
         ArgumentNullException.ThrowIfNull(placement);
         if (placement.WorldKind != ObserverWorldKind.TerrestrialMoon)
         {
-            return [];
+            return AuthorHomeMoons(placement);
         }
 
         var system = placement.System;
@@ -197,6 +215,73 @@ public static class NearSky
 
         return bodies;
     }
+
+    /// <summary>
+    /// The moons of a planet world, seen from its ground.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the simpler half of the near sky. The observer is at the centre of these orbits
+    /// rather than riding one of them, so nothing is penned in beside a parent the way an inner
+    /// sibling is: every home moon circulates, and a flat hour-angle rate places it. That rate is
+    /// the world's own turn less the moon's month, which is why a moon like Earth's rises about
+    /// fifty minutes later each day, and why one on a month shorter than the day rises in the west.
+    /// </para>
+    /// <para>
+    /// Each moon keeps one declination rather than working its way up and down the band over a
+    /// month, so it runs the same track across the sky each night. That swing is a slow business --
+    /// Earth's takes a month to cross and eighteen years to change how far it reaches -- and what a
+    /// player sees of it is a moon that rises a little further north or south, not a different sky.
+    /// </para>
+    /// </remarks>
+    private static IReadOnlyList<NearBody> AuthorHomeMoons(GalaxyPlacement placement)
+    {
+        var moons = placement.System.HomeMoons;
+        if (moons.Length == 0)
+        {
+            return [];
+        }
+
+        var rng = new SplitMix64(MixSeed(placement.WorldSeed, 0x4D01));
+        var bodies = new List<NearBody>(moons.Length);
+        foreach (var moon in moons)
+        {
+            // The observer stands one world radius closer than the centre the orbit is measured
+            // from, which is a percent of the distance at any orbit a moon actually keeps.
+            var angularDiameter = AngularDiameterDeg(moon.RadiusEarth, moon.OrbitalDistanceEarthRadii);
+            if (angularDiameter < MinAngularDiameterDeg)
+            {
+                continue;
+            }
+
+            bodies.Add(new NearBody(
+                $"home-moon-{moon.Index}",
+                NearBodyRole.HomeMoon,
+                moon.Index,
+                moon.DisplayName,
+                angularDiameter,
+                DiscFraction: 1.0,
+                HourAngleDeg: rng.NextRange(0.0, 360.0),
+                HourAngleRateDegPerDay: HomeMoonHourAngleRateDegPerDay(moon.DayLengthDays),
+                DeclinationDeg: rng.NextRange(-MaxHomeMoonDeclinationDeg, MaxHomeMoonDeclinationDeg),
+                Brightness: rng.NextRange(0.38, 0.62),
+                RingOpenness: 0.0));
+        }
+
+        return bodies;
+    }
+
+    /// <summary>
+    /// How fast a moon of the observer's own world drifts across its sky, in degrees per world day.
+    /// </summary>
+    /// <remarks>
+    /// The observer's frame turns once a day, which is the 360 a star keeps station at, and the moon
+    /// gives back one turn of that per month as it goes round the world. What is left is the drift:
+    /// a hair under 360 for a long month -- fifty minutes a day for Earth's -- and negative for a
+    /// month shorter than the day, which is a moon that rises in the west, the way Phobos does.
+    /// </remarks>
+    public static double HomeMoonHourAngleRateDegPerDay(double monthDays)
+        => monthDays <= 0.0 ? 360.0 : 360.0 * (1.0 - (1.0 / monthDays));
 
     /// <summary>
     /// How far open the parent giant's rings look from its own moon -- which is barely at all.

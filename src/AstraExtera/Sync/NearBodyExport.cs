@@ -6,12 +6,13 @@ namespace AstraExtera.Sync;
 
 /// <summary>
 /// Turns this world's near bodies into the catalog AstraTerra draws: the parent giant a moon world
-/// hangs beneath, and its sibling moons.
+/// hangs beneath and its sibling moons, or, on a planet world, that planet's own moons.
 /// </summary>
 /// <remarks>
-/// A world that is itself a moon has no moon of its own, so the catalog asks for Vintage Story's to
-/// stand down. An ordinary planet world keeps it and gets an empty catalog, which is also what
-/// undoes the suppression when a player leaves a moon world for a planet one in the same session.
+/// Either way the catalog asks Vintage Story's moon to stand down, because either way this world is
+/// not Earth. A moon world has no moon of its own; a planet world has the moons the generator gave
+/// it, which are not that one, and some worlds have none at all. Only the drawing stops: moonlight,
+/// the phase the calendar reports, and the length of the day are Vintage Story's own.
 /// </remarks>
 public static class NearBodyExport
 {
@@ -20,13 +21,11 @@ public static class NearBodyExport
         ArgumentNullException.ThrowIfNull(placement);
         ArgumentNullException.ThrowIfNull(textures);
         var bodies = NearSky.Author(placement);
-        if (bodies.Count == 0)
-        {
-            return NearBodyCatalog.Empty;
-        }
-
         var appearance = placement.System.ParentGiantAppearance;
-        var moonsByIndex = placement.System.Moons.ToDictionary(static moon => moon.Index);
+        var moonsByIndex = (placement.WorldKind == ObserverWorldKind.TerrestrialMoon
+                ? placement.System.Moons
+                : placement.System.HomeMoons)
+            .ToDictionary(static moon => moon.Index);
         var entries = new List<NearBodyEntry>(bodies.Count);
 
         foreach (var body in bodies)

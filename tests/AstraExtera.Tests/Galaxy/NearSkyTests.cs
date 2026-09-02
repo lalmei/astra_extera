@@ -6,12 +6,152 @@ namespace AstraExtera.Tests.Galaxy;
 
 public sealed class NearSkyTests
 {
+    /// <summary>
+    /// A planet world's near sky is its own moons: bodies that circulate, on their own months, with
+    /// no parent giant among them. What it must never be is nothing at all standing in for Earth's
+    /// moon, which is what a planet world used to get.
+    /// </summary>
     [Fact]
-    public void A_Planet_World_Has_No_Near_Bodies()
+    public void A_Planet_World_Gets_Its_Own_Moons_And_No_Parent()
     {
-        var placement = PlacementOfKind(ObserverWorldKind.TerrestrialPlanet);
+        var seenMoons = 0;
+        var seenWorlds = 0;
+        for (long seed = 1; seed <= 256; seed++)
+        {
+            var placement = GalaxyGenerator.Generate(seed);
+            if (placement.WorldKind != ObserverWorldKind.TerrestrialPlanet)
+            {
+                continue;
+            }
 
-        Assert.Empty(NearSky.Author(placement));
+            seenWorlds++;
+            var bodies = NearSky.Author(placement);
+            var moons = placement.System.HomeMoons.ToDictionary(static moon => moon.Index);
+            Assert.DoesNotContain(bodies, static body => body.Role != NearBodyRole.HomeMoon);
+            Assert.Equal(bodies.Select(static body => body.Id).Distinct().Count(), bodies.Count);
+
+            foreach (var body in bodies)
+            {
+                seenMoons++;
+                var moon = moons[body.SourceIndex];
+
+                // A moon of the observer's own world circulates, so a flat rate places it: there is
+                // no parent to be penned in beside the way a sibling moon is.
+                Assert.Null(body.Orbit);
+                Assert.Equal(1.0, body.DiscFraction);
+                Assert.Equal(0.0, body.RingOpenness);
+                Assert.Equal(
+                    NearSky.AngularDiameterDeg(moon.RadiusEarth, moon.OrbitalDistanceEarthRadii),
+                    body.AngularDiameterDeg,
+                    9);
+                Assert.InRange(body.AngularDiameterDeg, NearSky.MinAngularDiameterDeg, 10.0);
+                Assert.InRange(body.HourAngleDeg, 0.0, 360.0);
+                Assert.InRange(
+                    Math.Abs(body.DeclinationDeg),
+                    0.0,
+                    NearSky.MaxHomeMoonDeclinationDeg);
+                Assert.Equal(
+                    NearSky.HomeMoonHourAngleRateDegPerDay(moon.DayLengthDays),
+                    body.HourAngleRateDegPerDay,
+                    9);
+            }
+        }
+
+        Assert.True(seenWorlds > 0, "no planet world in 256 seeds");
+        Assert.True(seenMoons > 0, "no planet world in 256 seeds had a moon to draw");
+    }
+
+    /// <summary>
+    /// A home moon keeps station with the stars less the turn it gives back each month, which is
+    /// why a moon like Earth's rises about fifty minutes later every day. A month shorter than the
+    /// day runs the rate negative: that moon rises in the west, the way Phobos does.
+    /// </summary>
+    [Theory]
+    [InlineData(27.32, 346.82)]
+    [InlineData(2.0, 180.0)]
+    [InlineData(0.5, -360.0)]
+    public void A_Home_Moon_Drifts_By_The_Turn_It_Gives_Back_Each_Month(double monthDays, double expectedRate)
+    {
+        Assert.Equal(expectedRate, NearSky.HomeMoonHourAngleRateDegPerDay(monthDays), 2);
+
+        // A moon on an infinitely long month is a star: it keeps station with the sky.
+        Assert.Equal(360.0, NearSky.HomeMoonHourAngleRateDegPerDay(double.PositiveInfinity), 9);
+        Assert.Equal(360.0, NearSky.HomeMoonHourAngleRateDegPerDay(0.0));
+    }
+
+    /// <summary>
+    /// Earth's moon is 0.52 degrees across and its month is 27.3 days, so a world with an analog of
+    /// it should read like one rather than like a wall of rock or a speck.
+    /// </summary>
+    [Fact]
+    public void A_Planet_Worlds_Moons_Are_Moon_Sized_And_On_Moon_Like_Months()
+    {
+        var seen = 0;
+        for (long seed = 1; seed <= 256; seed++)
+        {
+            var placement = GalaxyGenerator.Generate(seed);
+            if (placement.WorldKind != ObserverWorldKind.TerrestrialPlanet)
+            {
+                continue;
+            }
+
+            var world = placement.World;
+            var roche = LocalSystem.RockyRocheLimitEarthRadii(world.RadiusEarth);
+            foreach (var moon in placement.System.HomeMoons)
+            {
+                seen++;
+                Assert.False(moon.Habitable);
+                Assert.True(
+                    moon.OrbitalDistanceEarthRadii > roche,
+                    $"seed {seed}: a moon inside the Roche limit would be a ring, not a moon");
+                Assert.InRange(
+                    moon.DayLengthDays,
+                    LocalSystem.MinHomeMoonMonthDays * 0.999,
+                    LocalSystem.MaxHomeMoonMonthDays * 1.001);
+                Assert.InRange(moon.RadiusEarth, 0.05, 0.45);
+            }
+        }
+
+        Assert.True(seen > 0);
+    }
+
+    /// <summary>
+    /// Two moons on nearly the same orbit would rise together night after night and never be told
+    /// apart, so a family is spaced.
+    /// </summary>
+    [Fact]
+    public void A_Planet_Worlds_Moons_Are_Spaced_Apart()
+    {
+        var seen = 0;
+        for (long seed = 1; seed <= 256; seed++)
+        {
+            var placement = GalaxyGenerator.Generate(seed);
+            if (placement.WorldKind != ObserverWorldKind.TerrestrialPlanet)
+            {
+                continue;
+            }
+
+            var orbits = placement.System.HomeMoons
+                .Select(static moon => moon.OrbitalDistanceEarthRadii)
+                .ToList();
+            Assert.Equal(orbits.OrderBy(static orbit => orbit), orbits);
+            for (var i = 1; i < orbits.Count; i++)
+            {
+                seen++;
+                Assert.True(
+                    orbits[i] / orbits[i - 1] >= LocalSystem.MinHomeMoonOrbitRatio - 1e-9,
+                    $"seed {seed}: two moons ran nearly the same orbit");
+            }
+        }
+
+        Assert.True(seen > 0, "no planet world in 256 seeds had more than one moon");
+    }
+
+    /// <summary>A moon world's family belongs to its giant, not to the world standing on it.</summary>
+    [Fact]
+    public void A_Moon_World_Hosts_No_Moons_Of_Its_Own()
+    {
+        Assert.Empty(PlacementOfKind(ObserverWorldKind.TerrestrialMoon).System.HomeMoons);
     }
 
     [Fact]
@@ -167,6 +307,9 @@ public sealed class NearSkyTests
         var placement = PlacementOfKind(ObserverWorldKind.TerrestrialMoon);
 
         Assert.Equal(NearSky.Author(placement), NearSky.Author(placement));
+
+        var planet = PlacementOfKind(ObserverWorldKind.TerrestrialPlanet);
+        Assert.Equal(NearSky.Author(planet), NearSky.Author(planet));
     }
 
     /// <summary>
