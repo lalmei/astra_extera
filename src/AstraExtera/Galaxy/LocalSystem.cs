@@ -32,8 +32,16 @@ public sealed record LocalSystem(
     CompanionPlanet[] Companions,
     SystemMoon[] Moons,
     int? HabitableMoonIndex,
-    GiantAppearance? ParentGiantAppearance = null)
+    GiantAppearance? ParentGiantAppearance = null,
+    SystemMoon[]? HomeMoons = null)
 {
+    /// <summary>
+    /// The moons of the playable world itself, which only a planet world has: a moon world's own
+    /// family is <see cref="Moons"/>, the giant's, and it is a member of that family rather than a
+    /// host of one. Declared rather than positional so an absent family is an empty list, never null.
+    /// </summary>
+    public SystemMoon[] HomeMoons { get; init; } = HomeMoons ?? [];
+
     public const double MinStarLifespanGyr = 2.0;
     public const double MaxMoonDayDays = 7.0;
     public const double MinMoonDayDays = 0.40;
@@ -41,6 +49,33 @@ public sealed record LocalSystem(
 
     /// <summary>Longest month a giant's regular moons are given, in Earth days.</summary>
     public const double MaxGiantMoonMonthDays = 120.0;
+
+    /// <summary>
+    /// Shortest and longest month a planet world's own moons are given, in Earth days. The floor
+    /// keeps a moon from skimming the atmosphere on a few-hour orbit; the ceiling keeps it a moon
+    /// rather than a captured rock that takes a season to come round. Earth's own is 27.3.
+    /// </summary>
+    public const double MinHomeMoonMonthDays = 2.0;
+    public const double MaxHomeMoonMonthDays = 90.0;
+
+    /// <summary>
+    /// How much further out each of a planet's moons has to sit than the one inside it. Bodies this
+    /// small are Hill-separated at far less, so this is really about the sky: two moons on all but
+    /// the same orbit would rise together every night and never tell themselves apart.
+    /// </summary>
+    public const double MinHomeMoonOrbitRatio = 1.6;
+
+    /// <summary>Fraction of the world's Hill sphere its moons stay inside to survive the star.</summary>
+    public const double HomeMoonHillFraction = 0.45;
+
+    /// <summary>
+    /// Lightest and heaviest a planet world's moon is allowed to be, in Earth masses. Earth's is
+    /// 0.0123, and it is the outlier of the solar system: nothing else that large circles anything
+    /// so small. Masses are drawn across this range in the logarithm, so most worlds get something
+    /// well under it and only a few get a moon that fills the sky.
+    /// </summary>
+    public const double MinHomeMoonMassEarth = 0.0002;
+    public const double MaxHomeMoonMassEarth = 0.020;
 
     /// <summary>
     /// Planets closer in than this lock to the star on a geological timescale, which would
@@ -98,7 +133,8 @@ public sealed record LocalSystem(
                && HabitableMoonIndex.Equals(other.HabitableMoonIndex)
                && ParentGiantAppearance == other.ParentGiantAppearance
                && Companions.SequenceEqual(other.Companions)
-               && Moons.SequenceEqual(other.Moons);
+               && Moons.SequenceEqual(other.Moons)
+               && HomeMoons.SequenceEqual(other.HomeMoons);
     }
 
     public override int GetHashCode()
@@ -128,6 +164,11 @@ public sealed record LocalSystem(
         }
 
         foreach (var moon in Moons)
+        {
+            hash.Add(moon);
+        }
+
+        foreach (var moon in HomeMoons)
         {
             hash.Add(moon);
         }
@@ -226,20 +267,25 @@ public sealed record LocalSystem(
     internal static double WorldRadiusFromMass(double massEarth)
         => Math.Pow(Math.Max(0.0, massEarth), 0.27);
 
-    internal static double MoonOrbitalPeriodDays(double giantMassEarth, double moonOrbitEarthRadii)
+    /// <summary>How long a moon takes to go round its primary, in Earth days.</summary>
+    internal static double MoonOrbitalPeriodDays(double primaryMassEarth, double moonOrbitEarthRadii)
     {
-        var giantMassSolar = giantMassEarth / EarthMassesPerSolar;
+        var primaryMassSolar = primaryMassEarth / EarthMassesPerSolar;
         var moonOrbitAu = moonOrbitEarthRadii / EarthRadiiPerAu;
-        return ComputeOrbitalPeriodDays(moonOrbitAu, giantMassSolar);
+        return ComputeOrbitalPeriodDays(moonOrbitAu, primaryMassSolar);
     }
 
-    internal static double GiantHillSphereEarthRadii(
-        double giantAu,
-        double giantMassEarth,
+    /// <summary>
+    /// How far a body's own gravity holds against the star's, in Earth radii. Moons much beyond a
+    /// fraction of this are stripped away, whether the body is a giant or a planet.
+    /// </summary>
+    internal static double HillSphereEarthRadii(
+        double semiMajorAxisAu,
+        double massEarth,
         double starMassSolar)
     {
-        var massRatio = (giantMassEarth / EarthMassesPerSolar) / (3.0 * starMassSolar);
-        return giantAu * Math.Cbrt(massRatio) * EarthRadiiPerAu;
+        var massRatio = (massEarth / EarthMassesPerSolar) / (3.0 * starMassSolar);
+        return semiMajorAxisAu * Math.Cbrt(massRatio) * EarthRadiiPerAu;
     }
 
     internal static double ComputeRocheLimitEarthRadii(double giantRadiusEarth, double moonRadiusEarth)
@@ -247,6 +293,18 @@ public sealed record LocalSystem(
         const double giantDensity = 700.0;
         const double moonDensity = 5514.0;
         return 2.44 * giantRadiusEarth * Math.Cbrt(giantDensity / moonDensity);
+    }
+
+    /// <summary>
+    /// Where a rocky world tears its own moon apart, in Earth radii from its centre. A rocky primary
+    /// is denser than a giant and a rocky moon is lighter than the world it circles, so this sits a
+    /// few world radii out -- twenty times closer in than a moon like Earth's actually orbits.
+    /// </summary>
+    public static double RockyRocheLimitEarthRadii(double worldRadiusEarth)
+    {
+        const double worldDensity = 5514.0;
+        const double moonDensity = 3340.0;
+        return 2.44 * worldRadiusEarth * Math.Cbrt(worldDensity / moonDensity);
     }
 
     internal static double MaxHabitableMoonOrbitEarthRadii(double giantMassEarth)
@@ -353,6 +411,7 @@ public sealed record LocalSystem(
         double? moonDay = null;
         double? rocheEarthRadii = null;
         GiantAppearance? giantAppearance = null;
+        SystemMoon[] homeMoons = [];
 
         if (asMoon)
         {
@@ -370,6 +429,11 @@ public sealed record LocalSystem(
             {
                 return false;
             }
+        }
+
+        if (!asMoon)
+        {
+            homeMoons = PlaceHomeMoons(ref rng, starMass, orbitalAu, bulk);
         }
 
         var habitableMass = asMoon ? giantMass ?? bulk.MassEarth : bulk.MassEarth;
@@ -403,7 +467,8 @@ public sealed record LocalSystem(
             companions,
             moons,
             habitableMoonIndex,
-            giantAppearance);
+            giantAppearance,
+            homeMoons);
         world = EarthAnalog.WithClimate(bulk, eqTemp, surfTemp);
         return EarthAnalog.IsEarthlike(world);
     }
@@ -486,7 +551,7 @@ public sealed record LocalSystem(
     {
         var giantRadius = GiantRadiusEarthRadii(giantMassEarth);
         var roche = ComputeRocheLimitEarthRadii(giantRadius, habitable.RadiusEarth);
-        var hill = GiantHillSphereEarthRadii(giantAu, giantMassEarth, starMassSolar);
+        var hill = HillSphereEarthRadii(giantAu, giantMassEarth, starMassSolar);
         var inner = roche * 1.12;
         var dayLimit = MaxHabitableMoonOrbitEarthRadii(giantMassEarth);
         var outer = Math.Min(hill * 0.36, dayLimit);
@@ -562,11 +627,103 @@ public sealed record LocalSystem(
         return moons;
     }
 
-    internal static double MoonOrbitForPeriodEarthRadii(double giantMassEarth, double periodDays)
+    /// <summary>
+    /// The moons of a planet world: the bodies that actually cross that world's night sky.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A rocky world's moons are the one near thing its sky has, so a world without them is a world
+    /// whose nights are only stars -- which happens, and is authored here rather than papered over
+    /// with the game's own moon.
+    /// </para>
+    /// <para>
+    /// A moon is drawn as a month rather than as an orbit, because a month is what the ground sees:
+    /// how long the thing takes to come back round to full. Months run from
+    /// <see cref="MinHomeMoonMonthDays"/> -- already well outside the Roche limit, and short enough
+    /// that the moon tears across the sky -- out to <see cref="MaxHomeMoonMonthDays"/> or whatever
+    /// <see cref="HomeMoonHillFraction"/> of the world's Hill sphere allows, past which the star
+    /// strips the moon away. They are drawn evenly in the logarithm, which keeps the close,
+    /// sky-filling ones the minority they should be, and kept
+    /// <see cref="MinHomeMoonOrbitRatio"/> apart in orbit so two moons do not run the same track
+    /// night after night.
+    /// </para>
+    /// <para>
+    /// Masses are lunar and below, and also drawn in the logarithm: Earth's moon is the largest in
+    /// the solar system for the world it circles by a wide margin, so a typical world gets something
+    /// smaller and only a few get one that fills the sky. Nothing here is habitable -- on a planet
+    /// world the playable body is the planet.
+    /// </para>
+    /// </remarks>
+    private static SystemMoon[] PlaceHomeMoons(
+        ref SplitMix64 rng,
+        double starMassSolar,
+        double worldAu,
+        EarthAnalogWorld world)
     {
-        var giantMassSolar = giantMassEarth / EarthMassesPerSolar;
+        var count = rng.NextUnit() switch
+        {
+            < 0.16 => 0,
+            < 0.68 => 1,
+            < 0.92 => 2,
+            _ => 3
+        };
+
+        if (count == 0)
+        {
+            return [];
+        }
+
+        var shortestMonth = MinHomeMoonMonthDays;
+        var longestMonth = MaxHomeMoonMonthDays;
+        var strippedOrbit = HillSphereEarthRadii(worldAu, world.MassEarth, starMassSolar) * HomeMoonHillFraction;
+        var monthAtHillEdge = MoonOrbitalPeriodDays(world.MassEarth, strippedOrbit);
+        if (monthAtHillEdge < longestMonth)
+        {
+            longestMonth = Math.Max(shortestMonth, monthAtHillEdge);
+        }
+
+        // Months rather than orbits, drawn in the logarithm: a month is how a moon reads from the
+        // ground -- how long it takes to come back round to full -- and spreading them evenly in
+        // the logarithm keeps the short, close, sky-filling ones as the minority they should be.
+        var orbits = new List<double>(count);
+        for (var attempt = 0; attempt < 32 && orbits.Count < count; attempt++)
+        {
+            var month = shortestMonth * Math.Pow(longestMonth / shortestMonth, rng.NextUnit());
+            var orbit = MoonOrbitForPeriodEarthRadii(world.MassEarth, month);
+            if (orbit <= RockyRocheLimitEarthRadii(world.RadiusEarth) * 1.5)
+            {
+                continue;
+            }
+
+            if (orbits.All(other => Math.Max(orbit, other) / Math.Min(orbit, other) >= MinHomeMoonOrbitRatio))
+            {
+                orbits.Add(orbit);
+            }
+        }
+
+        orbits.Sort();
+        var moons = new SystemMoon[orbits.Count];
+        for (var i = 0; i < orbits.Count; i++)
+        {
+            var mass = Math.Exp(rng.NextRange(Math.Log(MinHomeMoonMassEarth), Math.Log(MaxHomeMoonMassEarth)));
+            moons[i] = new SystemMoon(
+                Index: i + 1,
+                OrbitalDistanceEarthRadii: orbits[i],
+                MassEarth: mass,
+                RadiusEarth: WorldRadiusFromMass(mass),
+                DayLengthDays: MoonOrbitalPeriodDays(world.MassEarth, orbits[i]),
+                Habitable: false);
+        }
+
+        return moons;
+    }
+
+    /// <summary>Which orbit about a primary of this mass takes <paramref name="periodDays"/>.</summary>
+    internal static double MoonOrbitForPeriodEarthRadii(double primaryMassEarth, double periodDays)
+    {
+        var primaryMassSolar = primaryMassEarth / EarthMassesPerSolar;
         var periodRatio = periodDays / 365.25;
-        var au = Math.Cbrt(giantMassSolar * periodRatio * periodRatio);
+        var au = Math.Cbrt(primaryMassSolar * periodRatio * periodRatio);
         return au * EarthRadiiPerAu;
     }
 
@@ -725,7 +882,7 @@ public sealed record LocalSystem(
         var roche = ComputeRocheLimitEarthRadii(giantRadius, 0.3);
         var ringEdge = appearance.Ring is { } ring ? ring.OuterRadiusPlanetRadii * giantRadius : 0.0;
         var inner = Math.Max(roche * 1.15, ringEdge * 1.08);
-        var hill = GiantHillSphereEarthRadii(giant.SemiMajorAxisAu, giant.MassEarth, starMassSolar);
+        var hill = HillSphereEarthRadii(giant.SemiMajorAxisAu, giant.MassEarth, starMassSolar);
 
         // Regular moons keep short months; anything out near the Hill radius is a captured body on
         // a years-long orbit, which is not the family this draws.

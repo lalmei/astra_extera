@@ -22,7 +22,7 @@ Worlds are not dropped into a random starfield. The save first draws a Milky Way
 - A local system: K/G/F host (M allowed for moons), liquid-water orbit, shepherd giant past the snow line, up to three inner rocky worlds, an optional second gas giant and one or two ice giants beyond it. Every body is Hill-separated from the ones already placed. Moons keep a Roche-safe day under 7 Earth days
 - Giants are authored bodies rather than markers: an obliquity, a rotation period and the banding it whips up, a long-lived storm parked between two jets, a ring system in the planet's equatorial plane, and a family of moons outside the rings. Rings carry a composition -- ice, rock and dust, or sooted debris -- which sets how bright and how coloured they read
 - Companion planets, leftover comets, and comet-fed meteor showers authored into AstraTerra's sky. Earth's wanderers are replaced, not mixed in.
-- On a world that is itself a moon, the sky gets that world's own parent: the giant hangs fixed and tens of degrees wide, phased by the sun, with its sibling moons drifting past it. Vintage Story's moon stands down, since a moon has none of its own
+- Every world gets its own moons, or none. A planet world's moons rise and set on months of their own, each at the size and brightness the generator gave it; a moon world gets its parent instead -- the giant hangs fixed and tens of degrees wide, phased by the sun, with its sibling moons drifting past it. Vintage Story's moon stands down either way, because neither sky is Earth's
 - Save-game persistence of the galaxy, the sampled star catalog, and the local-system sky; the join packet carries all three so clients render the stored sky instead of sampling again
 - A visible star catalog sampled from the galaxy's own stellar density, exported in AstraTerra's `star-catalog.v1.json` shape
 - `/astraextera galaxy` to inspect the authored site
@@ -105,8 +105,6 @@ than painted in. Vintage Story's own moon is asked to stand down. Only its drawi
 the phase the calendar reports, and the length of the day are untouched, so the day cycle is the one
 the world always had.
 
-A world that is a planet keeps the vanilla moon for now; it has no moons of its own in the model.
-
 A giant's rings reach the sky as brightness and nothing else, because AstraTerra draws every planet
 as a point of light: an open sheet of ring ice can add most of a magnitude, an edge-on or sooty ring
 adds nothing. A giant's cloud decks set its tint the same way, so the dot in the sky and the portrait
@@ -119,6 +117,23 @@ star. Comets are leftover ice the shepherd giant scattered, with authored return
 across this world's sky. Each comet leaves a meteor shower where its debris meets the observer's
 orbit; a Halley-type comet leaves both nodes. Sibling moons of a habitable moon stay off the planet
 catalog: AstraTerra's ephemeris is heliocentric, and those moons would collapse onto the parent.
+
+### The sky of a planet
+
+A planet world has moons of its own, and they are the simpler half of this: the observer sits at the
+centre of those orbits rather than riding one, so every moon rises and sets. Each is drawn as a month
+rather than as an orbit -- two days out to ninety, or to whatever the world's Hill sphere allows
+before the star strips a moon away -- spread evenly in the logarithm, so most worlds get a long month
+and only a few get the close, fast, sky-filling kind. A moon on a month longer than the day rises
+about a turn's worth later each day, the way Earth's rises fifty minutes later; one on a month
+shorter than the day rises in the west, the way Phobos does.
+
+Masses are lunar and below, drawn in the logarithm too, because Earth's moon is the largest thing in
+the solar system relative to the world it circles and a typical world should not get one. About one
+world in six gets no moon at all, and then the nights really are only stars -- which is the honest
+sky for such a world, and better than Earth's moon hanging over it. Vintage Story's moon is asked to
+stand down on a planet world for the same reason it is on a moon world: the day cycle, the moonlight
+and the calendar's phase are untouched, only the drawing stops.
 
 ## Constellations
 

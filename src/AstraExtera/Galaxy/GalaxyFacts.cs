@@ -151,6 +151,19 @@ public static class GalaxyFacts
             }
         }
 
+        if (placement.WorldKind == ObserverWorldKind.TerrestrialPlanet)
+        {
+            rows.Add(new GalaxyFact(
+                "Moons",
+                system.HomeMoons.Length == 0
+                    ? "none; the nights are stars only"
+                    : string.Join(
+                        ", ",
+                        system.HomeMoons.Select(moon =>
+                            $"{moon.DisplayName}: {F(moon.RadiusEarth)} R{Earth} at {F(moon.OrbitalDistanceEarthRadii)} R{Earth}, "
+                            + $"month {F(moon.DayLengthDays)} d"))));
+        }
+
         if (placement.WorldKind == ObserverWorldKind.TerrestrialMoon && system.ParentGiantAppearance is { } parent)
         {
             rows.Add(new GalaxyFact("Parent giant face", DescribeFace(parent)));

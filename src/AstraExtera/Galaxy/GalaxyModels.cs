@@ -259,7 +259,7 @@ public sealed record GalaxyPlacement(
     LocalSystem System,
     CelestialOrientation Orientation)
 {
-    public const int CurrentSchemaVersion = 6;
+    public const int CurrentSchemaVersion = 7;
 
     public bool CanHostIronCore => MetallicityModel.CanHostIronCore(Location.MetallicityFeH);
 

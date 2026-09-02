@@ -68,8 +68,9 @@ public sealed class AstraTerraSkyBridge
         astraTerra.ReplaceCometCatalog(LocalSystemSkyExport.ToCometCatalog(sky.LocalSky));
         astraTerra.ReplaceMeteorShowers(LocalSystemSkyExport.ToMeteorShowers(sky.LocalSky));
 
-        // A world that is itself a moon does not get Earth's moon: it gets the giant it orbits,
-        // fixed in one spot because it is tidally locked to it, and its sibling moons.
+        // No world here gets Earth's moon. A moon world gets the giant it orbits, fixed in one spot
+        // because it is tidally locked to it, and its sibling moons; a planet world gets the moons
+        // the generator gave it, which on some worlds is none.
         var nearBodies = NearBodyExport.Build(sky.Placement, textures);
         astraTerra.ReplaceNearBodies(nearBodies);
 

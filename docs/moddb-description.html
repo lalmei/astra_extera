@@ -21,7 +21,7 @@
 
 <div style="background: #f7e9c3; border: 1px solid #ddc27e; border-radius: 4px; padding: 12px 16px; margin: 0 0 16px; color: #6b4e12; line-height: 1.6;">
 <p style="margin: 0 0 8px;"><strong>&#9888; Initial alpha release</strong></p>
-<p style="margin: 0 0 8px;">Version 0.1.0 is the first public release. Procedural galaxies, stored star catalogs, local systems, giant-planet skies, and the inspection panel are implemented. Procedural deep-sky objects are not yet generated, and a world that is itself a planet keeps Vintage Story's ordinary moon for now.</p>
+<p style="margin: 0 0 8px;">Version 0.1.0 is the first public release. Procedural galaxies, stored star catalogs, local systems, giant-planet skies, and the inspection panel are implemented. Procedural deep-sky objects are not yet generated.</p>
 </div>
 
 <div style="background: #dce8f5; border: 1px solid #a9c6e4; border-radius: 4px; padding: 12px 16px; margin: 0 0 16px; color: #1f3b5c; line-height: 1.6;">
@@ -46,6 +46,7 @@
 <li><strong>The local system has an architecture.</strong> A K-, G-, or F-type host, with M dwarfs permitted when the habitable world is a moon, anchors a liquid-water orbit, inner rocky worlds, a shepherd giant beyond the snow line, and optional outer giants on separated orbits. The comets scattered by the giant and the meteor showers fed by those comets join the sky too.</li>
 <li><strong>Giants are bodies, not markers.</strong> They carry cloud bands, rotation, a long-lived storm, tilted rings with their own composition, and families of moons. Twelve giant textures, sixteen ring systems, and fifty-four moon textures let the rendered face follow the generated body's colour and geometry.</li>
 <li><strong>A moon world has a moon world's sky.</strong> Its parent giant hangs fixed and tens of degrees wide, phases with the sun, and shows its rings edge-on. Sibling moons drift past it and cross its face and rings. Vintage Story's ordinary moon steps aside.</li>
+<li><strong>A planet world has its own moons.</strong> Each rises and sets on a month of its own, at the size and brightness the generator gave it, and about one world in six is authored with no moon at all. Vintage Story's ordinary moon steps aside there too, while moonlight, the calendar phase, and the day cycle stay as they were.</li>
 <li><strong>Everyone gets the same answer.</strong> The server authors the galaxy, star catalog, and local sky once, stores them with the save, and sends them in the join packet. Clients render the stored sky instead of rolling their own.</li>
 <li><strong>The result is inspectable.</strong> Press <strong>Ctrl+Shift+S</strong> for an in-game panel with face-on and edge-on galaxy figures, an all-sky view, the full local system, and portraits of every companion. <code>/astraextera galaxy</code> reports the same facts in text.</li>
 </ul>
