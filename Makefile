@@ -17,7 +17,7 @@ PACKAGE_FILE = $(DIST_DIR)/AstraExtera-$(MOD_VERSION).zip
 GALAXY_PREVIEW := $(DIST_DIR)/galaxy-preview.html
 STAR_CATALOG := $(DIST_DIR)/star-catalog.v1.json
 
-.PHONY: help test build package deploy run deploy-run galaxy-preview star-catalog celestial-textures moddb-preview moddb-copy
+.PHONY: help test build package deploy run deploy-run galaxy-preview star-catalog celestial-textures moddb-preview moddb-copy bump-version bump-minor-version bump-patch-version bump-version-files
 
 help:
 	@printf "Targets:\n"
@@ -35,6 +35,9 @@ help:
 	@printf "  make star-catalog SEED=42    Same, pinned to seed 42\n"
 	@printf "  make moddb-preview           Render the ModDB description locally and open it\n"
 	@printf "  make moddb-copy              Copy the paste-ready ModDB description to the clipboard\n"
+	@printf "  make bump-version VERSION=0.1.2  Update, build, and deploy mod version\n"
+	@printf "  make bump-minor-version  Increment minor version, reset patch to 0, build, and deploy\n"
+	@printf "  make bump-patch-version  Increment patch version, build, and deploy\n"
 
 test:
 	@env $(DOTNET_ENV) dotnet test tests/AstraExtera.Tests/AstraExtera.Tests.csproj -c $(CONFIGURATION) -v minimal
@@ -84,3 +87,28 @@ moddb-preview: $(MODDB_PREVIEW)
 moddb-copy:
 	@python3 tools/moddb_preview.py --paste | pbcopy
 	@printf "Paste-ready ModDB description copied to the clipboard\n"
+
+# Re-invoke make after rewriting the version so PACKAGE_FILE picks up the new number.
+bump-version: bump-version-files
+	@$(MAKE) deploy
+
+bump-version-files:
+	@if [[ -z "$(VERSION)" ]]; then printf "Usage: make bump-version VERSION=0.1.2\n"; exit 2; fi
+	@if ! [[ "$(VERSION)" =~ ^[0-9]+\.[0-9]+\.[0-9]+$$ ]]; then printf "VERSION must look like 0.1.2\n"; exit 2; fi
+	@perl -0pi -e 's/"version":\s*"[^"]+"/"version": "$(VERSION)"/' modinfo.json
+	@perl -0pi -e 's/public const string Version = "[^"]+";/public const string Version = "$(VERSION)";/' src/AstraExtera/AstraExteraModMetadata.cs
+	@printf "Bumped AstraExtera source version to $(VERSION)\n"
+
+bump-minor-version:
+	@current=$$(perl -0ne 'print $$1 if /"version":\s*"([0-9]+\.[0-9]+\.[0-9]+)"/' modinfo.json); \
+	if [[ -z "$$current" ]]; then printf "Could not read version from modinfo.json\n"; exit 2; fi; \
+	parts=("$${(@s:.:)current}"); \
+	new_version="$$parts[1].$$(( $$parts[2] + 1 )).0"; \
+	$(MAKE) bump-version VERSION=$$new_version
+
+bump-patch-version:
+	@current=$$(perl -0ne 'print $$1 if /"version":\s*"([0-9]+\.[0-9]+\.[0-9]+)"/' modinfo.json); \
+	if [[ -z "$$current" ]]; then printf "Could not read version from modinfo.json\n"; exit 2; fi; \
+	parts=("$${(@s:.:)current}"); \
+	new_version="$$parts[1].$$parts[2].$$(( $$parts[3] + 1 ))"; \
+	$(MAKE) bump-version VERSION=$$new_version
