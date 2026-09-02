@@ -87,6 +87,16 @@ public sealed class GalaxySkyTests
         Assert.Equal(original.Stars, restored.Stars);
     }
 
+    /// <remarks>
+    /// The budget is deliberately loose, because the compressed length is not ours to predict.
+    /// StarFieldCodec gzips, and .NET ships a different zlib per platform, so the same catalog
+    /// measures ~229 KB on macOS arm64 and ~254 KB on Linux x64. A threshold pinned to whichever
+    /// machine the author happened to run fails on the other one without anything having grown.
+    ///
+    /// What actually bounds the payload is the resolved-star budget: 10,000 stars of seven floats
+    /// is 280 KB before compression, whatever zlib then makes of it. Assert that directly, and let
+    /// the byte count guard only against a catalog that has genuinely outgrown its budget.
+    /// </remarks>
     [Fact]
     public void The_Stored_Catalog_Fits_A_Join_Packet()
     {
@@ -94,6 +104,9 @@ public sealed class GalaxySkyTests
         var bytes = StarFieldCodec.ToBytes(crowded.StarField);
 
         Assert.True(crowded.StarField.Stars.Count >= 1000);
-        Assert.True(bytes.Length < 250_000, $"stored catalog was {bytes.Length} bytes");
+        Assert.True(
+            crowded.StarField.Stars.Count <= new StarFieldOptions().ResolvedStarBudget,
+            $"stored catalog held {crowded.StarField.Stars.Count} stars");
+        Assert.True(bytes.Length < 300_000, $"stored catalog was {bytes.Length} bytes");
     }
 }
