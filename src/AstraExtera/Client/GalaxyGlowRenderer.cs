@@ -114,10 +114,11 @@ public sealed class GalaxyGlowRenderer : IRenderer
         var latitude = LatitudeMapper.MapGameLatitude(
             position.Z,
             calendar.OnGetLatitude is null ? null : z => calendar.OnGetLatitude(z));
-        var longitude = LatitudeMapper.MapWorldLongitude(
-            position.X,
-            api.World.BlockAccessor.MapSizeX,
-            api.World.BlockAccessor.MapSizeZ);
+        // The glow has to turn on exactly the longitude AstraTerra turns its stars on, or the band
+        // slides out from behind the billboards it belongs to as the player travels east or west.
+        // ObserverLongitude is that one answer: the world's own pole-to-equator scale, and zero
+        // whenever the visible sun ignores longitude and the whole sky keeps a single solar time.
+        var longitude = ObserverLongitude.ForObserver(position.X, api.World);
         var localSiderealAngle = CelestialMath.GetVanillaAlignedLocalSiderealAngle(
             calendar.TotalDays,
             Math.Max(1, calendar.DaysPerYear),
