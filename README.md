@@ -146,3 +146,15 @@ make deploy
 ```
 
 Enable **AstraTerra** and **AstraExtera** together. AstraExtera will not load without AstraTerra.
+
+## How I test
+
+Automated tests cover the generated data and code contracts, but they cannot tell me whether the sky
+looks right or how a collection of mods behaves in-game. I therefore also test manually on a 24 GB
+M3 MacBook Air with a mostly vanilla-plus set of mods I regularly use: Carry On, Butchering, Better
+Ruins, Blood Trail, QP Chisel, Buzzwords, Terra Pretty, Watershed, D.E.A.D., Farseer, Footsteps,
+Food Shelves, Hydrate or Diedrate, RealSmoke, Place On Slabs, Terrain Slabs, Tankards, Vanilla More
+Molds, Waterfall, and others.
+
+I wish Vintage Story offered an easier way to automate this kind of compatibility testing. If the
+developers provide one, I intend to add it to this process.
