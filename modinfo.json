@@ -4,7 +4,7 @@
   "name": "AstraExtera",
   "authors": ["lalmei"],
   "description": "Server-authored procedural sky for Vintage Story. Places every world in a generated galaxy first, then keeps that sky identical for every player. Requires AstraTerra.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "dependencies": {
     "game": "1.22.2",
     "astraterra": "0.10.0"
