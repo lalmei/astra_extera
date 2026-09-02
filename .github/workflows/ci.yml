@@ -1,0 +1,157 @@
+name: CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches:
+      - main
+
+env:
+  VINTAGE_STORY_VERSION: 1.22.2
+  VINTAGE_STORY_ARCHIVE_URL: https://cdn.vintagestory.at/gamefiles/stable/vs_client_linux-x64_1.22.2.tar.gz
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Test, Build, and Package
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      # The Makefile's recipes are zsh (SHELL := /bin/zsh), which ubuntu-latest does not ship.
+      - name: Install zsh
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y zsh
+
+      - name: Cache Vintage Story client
+        uses: actions/cache@v6
+        with:
+          path: .vintagestory
+          key: vintagestory-${{ runner.os }}-${{ env.VINTAGE_STORY_VERSION }}
+
+      - name: Install Vintage Story references
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ ! -d "$GITHUB_WORKSPACE/.vintagestory" ]] || ! find "$GITHUB_WORKSPACE/.vintagestory" -name VintagestoryAPI.dll -type f | grep -q .; then
+            mkdir -p "$GITHUB_WORKSPACE/.vintagestory" "$RUNNER_TEMP/vintagestory"
+            curl -fL "$VINTAGE_STORY_ARCHIVE_URL" -o "$RUNNER_TEMP/vintagestory/vintagestory.tar.gz"
+            tar -xzf "$RUNNER_TEMP/vintagestory/vintagestory.tar.gz" -C "$GITHUB_WORKSPACE/.vintagestory"
+          fi
+
+          vintagestory_api="$(find "$GITHUB_WORKSPACE/.vintagestory" -name VintagestoryAPI.dll -type f | head -n 1)"
+          if [[ -z "$vintagestory_api" ]]; then
+            echo "Could not find VintagestoryAPI.dll after extracting Vintage Story." >&2
+            exit 1
+          fi
+
+          echo "VINTAGE_STORY=$(dirname "$vintagestory_api")" >> "$GITHUB_ENV"
+
+      # Build against the exact AstraTerra the manifest claims to need, not the newest one.
+      # This is what keeps the declared floor honest: reaching for an API that landed after
+      # that release fails here rather than at a player's load screen.
+      - name: Install the declared AstraTerra floor
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          floor="$(jq -er '.dependencies.astraterra | select(test("^[0-9]+\\.[0-9]+\\.[0-9]+$"))' modinfo.json)"
+          echo "modinfo.json declares an AstraTerra floor of $floor; building against that release."
+
+          asset_url="https://github.com/lalmei/astraterra/releases/download/v$floor/AstraTerra-$floor.zip"
+          mkdir -p "$RUNNER_TEMP/astraterra"
+          if ! curl -fL "$asset_url" -o "$RUNNER_TEMP/astraterra/AstraTerra.zip"; then
+            echo "::error::Could not download AstraTerra $floor from $asset_url. Does a published release v$floor exist with that asset?" >&2
+            exit 1
+          fi
+
+          unzip -q "$RUNNER_TEMP/astraterra/AstraTerra.zip" -d "$RUNNER_TEMP/astraterra/extracted"
+
+          astra_terra_dll="$(find "$RUNNER_TEMP/astraterra/extracted" -name AstraTerra.dll -type f | head -n 1)"
+          if [[ -z "$astra_terra_dll" ]]; then
+            echo "::error::AstraTerra-$floor.zip did not contain AstraTerra.dll." >&2
+            exit 1
+          fi
+
+          echo "ASTRA_TERRA=$(dirname "$astra_terra_dll")" >> "$GITHUB_ENV"
+
+      - name: Run tests
+        run: make test
+
+      - name: Build mod
+        run: make build
+
+      - name: Package mod
+        run: make package
+
+      - name: Upload mod package
+        uses: actions/upload-artifact@v7
+        with:
+          name: astraextera-mod-package
+          path: dist/*.zip
+          if-no-files-found: error
+
+      - name: Attach mod package to release draft
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          # Mirrors MOD_VERSION and PACKAGE_FILE in the Makefile.
+          version="$(perl -0ne 'print $1 if /"version":\s*"([0-9]+\.[0-9]+\.[0-9]+)"/' modinfo.json)"
+          if [[ -z "$version" ]]; then
+            echo "Could not read a semantic version from modinfo.json." >&2
+            exit 1
+          fi
+
+          tag="v$version"
+          package="dist/AstraExtera-$version.zip"
+          if [[ ! -f "$package" ]]; then
+            echo "Expected package $package was not produced by 'make package'." >&2
+            exit 1
+          fi
+
+          # Release Drafter runs from the same push on a separate runner, so the draft
+          # may not exist yet. In practice it finishes long before this job does; the
+          # wait is insurance rather than the expected path.
+          draft_state=""
+          for attempt in $(seq 1 10); do
+            if draft_state="$(gh release view "$tag" --json isDraft --jq '.isDraft' 2>/dev/null)"; then
+              break
+            fi
+            draft_state=""
+            echo "Waiting for release draft $tag (attempt $attempt/10)..."
+            sleep 15
+          done
+
+          # A published release must never be modified by automation. This happens when
+          # main moves after $tag has already shipped, i.e. the version was not bumped.
+          if [[ "$draft_state" == "false" ]]; then
+            echo "::warning::Release $tag is already published; leaving its assets untouched. Bump the version before merging further changes to main."
+            exit 0
+          fi
+
+          if [[ -z "$draft_state" ]]; then
+            echo "No draft $tag appeared; creating one so the package is not lost."
+            gh release create "$tag" --draft --title "$tag" --notes ""
+          fi
+
+          # Only touches assets, so Release Drafter's generated notes survive.
+          gh release upload "$tag" "$package" --clobber
+          echo "Attached $package to draft $tag"
