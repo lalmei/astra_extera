@@ -24,7 +24,7 @@ public sealed class AstraExteraModSystem : ModSystem
     {
         serverSync = new GalaxyServerSync(api);
         serverSync.Register();
-        new GalaxyServerCommands(() => serverSync.Sky).Register(api);
+        new GalaxyServerCommands(() => serverSync.Sky, serverSync.Reroll).Register(api);
         api.Logger.Event("AstraExtera startup step: galaxy and star catalog authored on the server and synced to joining players");
     }
 

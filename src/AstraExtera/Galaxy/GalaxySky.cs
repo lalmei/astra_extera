@@ -4,9 +4,9 @@ namespace AstraExtera.Galaxy;
 /// The server-authored sky: a galactic placement, the sampled star catalog, and the local system's
 /// wanderers.
 /// <para>
-/// Sampling runs once, on the server, when the save is first authored (or when a current placement
-/// is loaded without a stored catalog). Clients render those stored lists rather than drawing their
-/// own, so every player sees the same stars, planets, comets and showers.
+/// Sampling runs on the server when the save is first authored, an admin rerolls the cosmology,
+/// or a current placement is loaded without a stored catalog. Clients render those lists rather
+/// than drawing their own, so every player sees the same stars, planets, comets and showers.
 /// </para>
 /// </summary>
 public sealed record GalaxySky(GalaxyPlacement Placement, StarField StarField, LocalSystemSky LocalSky)
@@ -59,6 +59,7 @@ public static class GalaxySkyStore
                 localDirty);
         }
 
-        return new GalaxySkyResolution(GalaxySky.Author(worldSeed), true, true, true);
+        // A rerolled cosmology keeps its own seed even when a schema upgrade rebuilds the sky.
+        return new GalaxySkyResolution(GalaxySky.Author(storedPlacement?.WorldSeed ?? worldSeed), true, true, true);
     }
 }
