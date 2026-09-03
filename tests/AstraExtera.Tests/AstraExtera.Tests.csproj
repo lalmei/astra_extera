@@ -21,6 +21,11 @@
       <HintPath>$(VintageStoryPath)/VintagestoryAPI.dll</HintPath>
       <Private>true</Private>
     </Reference>
+    <!-- Exercise the game's real command parser and privilege checks. -->
+    <Reference Include="VintagestoryLib">
+      <HintPath>$(VintageStoryPath)/VintagestoryLib.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
     <Reference Include="protobuf-net">
       <HintPath>$(VintageStoryPath)/Lib/protobuf-net.dll</HintPath>
       <Private>true</Private>

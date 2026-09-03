@@ -54,7 +54,7 @@ public sealed class GalaxySkyTests
     }
 
     [Fact]
-    public void An_Old_Placement_Schema_Regenerates_The_Galaxy_And_The_Catalog()
+    public void An_Old_Placement_Schema_Regenerates_Using_The_Saved_Cosmology_Seed()
     {
         var stale = GalaxyGenerator.Generate(42) with { SchemaVersion = 0 };
         var leftoverStars = new StarField(
@@ -70,7 +70,7 @@ public sealed class GalaxySkyTests
         Assert.True(resolution.StarsDirty);
         Assert.True(resolution.LocalSkyDirty);
         Assert.Equal(GalaxyPlacement.CurrentSchemaVersion, resolution.Sky.Placement.SchemaVersion);
-        Assert.Equal(7, resolution.Sky.Placement.WorldSeed);
+        Assert.Equal(42, resolution.Sky.Placement.WorldSeed);
         Assert.NotEqual(leftoverStars.Stars, resolution.Sky.StarField.Stars);
     }
 

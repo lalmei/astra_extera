@@ -18,6 +18,30 @@ public sealed class GalaxyServerSync
 
     public GalaxyPlacement? Placement => sky?.Placement;
 
+    public GalaxySky Reroll(long? seed = null)
+    {
+        if (sky is null || channel is null)
+        {
+            throw new InvalidOperationException("AstraExtera has not loaded this save's cosmology yet.");
+        }
+
+        var previousSeed = sky.Placement.WorldSeed;
+        var nextSeed = seed ?? Random.Shared.NextInt64();
+        while (seed is null && nextSeed == previousSeed)
+        {
+            nextSeed = Random.Shared.NextInt64();
+        }
+
+        var replacement = GalaxySky.Author(nextSeed);
+        var packet = ToPacket(replacement);
+        Store(packet);
+        sky = replacement;
+        channel.BroadcastPacket(packet);
+        api.Logger.Event("AstraExtera rerolled cosmology: seed {0} -> {1}.", previousSeed, nextSeed);
+        api.Logger.Event(GalaxyPlacementCodec.Describe(replacement));
+        return replacement;
+    }
+
     public void Register()
     {
         channel = api.Network.RegisterChannel(AstraExteraModMetadata.GalaxyChannelName)
@@ -55,28 +79,40 @@ public sealed class GalaxyServerSync
             TryLoadStars(),
             api.World.Seed,
             TryLoadLocalSky());
-        if (resolution.PlacementDirty)
+        if (resolution.PlacementDirty || resolution.StarsDirty || resolution.LocalSkyDirty)
         {
-            api.WorldManager.SaveGame.StoreData(
-                AstraExteraModMetadata.GalaxySaveKey,
-                GalaxyPlacementCodec.ToUtf8(resolution.Sky.Placement));
-        }
-
-        if (resolution.StarsDirty)
-        {
-            api.WorldManager.SaveGame.StoreData(
-                AstraExteraModMetadata.StarFieldSaveKey,
-                StarFieldCodec.ToBytes(resolution.Sky.StarField));
-        }
-
-        if (resolution.LocalSkyDirty)
-        {
-            api.WorldManager.SaveGame.StoreData(
-                AstraExteraModMetadata.LocalSkySaveKey,
-                LocalSystemSkyCodec.ToUtf8(resolution.Sky.LocalSky));
+            Store(ToPacket(resolution.Sky), resolution.PlacementDirty, resolution.StarsDirty, resolution.LocalSkyDirty);
         }
 
         return resolution.Sky;
+    }
+
+    private void Store(
+        GalaxyPlacementPacket packet,
+        bool placementDirty = true,
+        bool starsDirty = true,
+        bool localSkyDirty = true)
+    {
+        if (placementDirty)
+        {
+            api.WorldManager.SaveGame.StoreData(
+                AstraExteraModMetadata.GalaxySaveKey,
+                packet.Payload);
+        }
+
+        if (starsDirty)
+        {
+            api.WorldManager.SaveGame.StoreData(
+                AstraExteraModMetadata.StarFieldSaveKey,
+                packet.StarFieldPayload);
+        }
+
+        if (localSkyDirty)
+        {
+            api.WorldManager.SaveGame.StoreData(
+                AstraExteraModMetadata.LocalSkySaveKey,
+                packet.LocalSkyPayload);
+        }
     }
 
     private GalaxyPlacement? TryLoadPlacement()
