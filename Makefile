@@ -97,6 +97,9 @@ bump-version-files:
 	@if ! [[ "$(VERSION)" =~ ^[0-9]+\.[0-9]+\.[0-9]+$$ ]]; then printf "VERSION must look like 0.1.2\n"; exit 2; fi
 	@perl -0pi -e 's/"version":\s*"[^"]+"/"version": "$(VERSION)"/' modinfo.json
 	@perl -0pi -e 's/public const string Version = "[^"]+";/public const string Version = "$(VERSION)";/' src/AstraExtera/AstraExteraModMetadata.cs
+	@for f in .github/ISSUE_TEMPLATE/*.yml; do \
+		perl -0pi -e 's/(id: mod-version.*?placeholder:\s*)v?[0-9]+\.[0-9]+\.[0-9]+/$${1}v$(VERSION)/s' "$$f"; \
+	done
 	@printf "Bumped AstraExtera source version to $(VERSION)\n"
 
 bump-minor-version:
