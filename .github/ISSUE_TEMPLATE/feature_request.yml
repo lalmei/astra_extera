@@ -1,0 +1,72 @@
+name: Feature request
+description: Suggest a new feature or improvement for AstraExtera.
+title: "🚀 FEAT: "
+labels: ["enhancement"]
+
+body:
+  - type: input
+    id: mod-version
+    attributes:
+      label: Mod Version
+      description: What AstraExtera version are you using?
+      placeholder: v0.3.0
+    validations:
+      required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of the mod does your suggestion relate to?
+      options:
+        - Galaxy generation & world placement
+        - Stars & constellations
+        - Local systems & planets
+        - Moons & rings
+        - Comets & meteor showers
+        - Deep-sky objects
+        - Sky rendering
+        - Galaxy panel & previews
+        - Server commands & multiplayer
+        - Other
+    validations:
+      required: false
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Describe the feature or improvement you'd like to see.
+      placeholder: A short, clear description of what you want.
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Problem / motivation
+      description: What problem would this solve, or why would it make the mod better?
+      placeholder: "I'm always frustrated when '....' / It would be great if '....'"
+    validations:
+      required: false
+  - type: textarea
+    id: solution
+    attributes:
+      label: How it should work
+      description: Explain how you imagine the feature behaving in game.
+      placeholder: "1. Use the '....' 2. It should '....' 3. So that '....'."
+    validations:
+      required: false
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any workarounds or other approaches you've thought about.
+      placeholder: Other ways this could be solved, if any.
+    validations:
+      required: false
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Screenshots, mockups, or real-world astronomy references that help explain the idea.
+      placeholder: Drag and drop pictures here, or link references.
+    validations:
+      required: false
