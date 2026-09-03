@@ -106,6 +106,7 @@
 <div class="spoiler-toggle" style="padding: 12px 15px; background: #e5dfd4; font-size: 1.1em; font-weight: 600; color: #333; text-align: center;">&#9662;&nbsp; &#128736; Server owners and developers.</div>
 <div class="spoiler-text" style="padding: 15px; line-height: 1.6; color: #333; background: #eee9de; border-top: 1px solid #cfc9be;">
 <p>Use <code>/astraextera galaxy</code> to inspect the current save's authored site in text. The stored records carry schema versions so old saves can keep their sky as the generator evolves.</p>
+<p>The cosmology currently controls the sky independently of terrain generation. Server admins with the <code>controlserver</code> privilege can use <code>/astraextera reroll</code> for a new random cosmology seed, or <code>/astraextera reroll 42</code> for a specific signed 64-bit seed. Omit the leading slash in the server console. The command saves the replacement galaxy, stars, and local system and sends them to all connected players; the new sky persists across restarts. Terrain and the world-generation seed stay unchanged. Reopen <strong>Ctrl+Shift+S</strong> to inspect the result. Existing constellation drawings and star names are kept, but now point to stars in the new catalog.</p>
 <p>For development, <code>make galaxy-preview SEED=42</code> writes a pinned static HTML preview, while <code>make star-catalog SEED=42</code> exports the catalog without opening the preview. The mod compiles against a sibling AstraTerra checkout when one is present and otherwise uses the installed dependency.</p>
 </div>
 </div>

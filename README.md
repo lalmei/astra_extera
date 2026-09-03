@@ -19,7 +19,7 @@ Worlds are not dropped into a random starfield. The save first draws a Milky Way
 
 ## Features
 
-- Deterministic galaxy + galactocentric location from the Vintage Story world seed
+- Deterministic galaxy + galactocentric location, initially using the Vintage Story world seed
 - Galactic habitable zone with `[Fe/H]` floors for iron and ores. Spirals are the common hosts; giant ellipticals are rare and use a spheroid shell outside the dense core instead of a thin disk.
 - Playable worlds are Earth analogs: ~1 Rearth, ~1 g, Earth-like bulk iron / core fraction, and Earth-like temperature derived from the host star
 - A local system: K/G/F host (M allowed for moons), liquid-water orbit, shepherd giant past the snow line, up to three inner rocky worlds, an optional second gas giant and one or two ice giants beyond it. Every body is Hill-separated from the ones already placed. Moons keep a Roche-safe day under 7 Earth days
@@ -29,12 +29,26 @@ Worlds are not dropped into a random starfield. The save first draws a Milky Way
 - Save-game persistence of the galaxy, the sampled star catalog, and the local-system sky; the join packet carries all three so clients render the stored sky instead of sampling again
 - A visible star catalog sampled from the galaxy's own stellar density, exported in AstraTerra's `star-catalog.v1.json` shape
 - `/astraextera galaxy` to inspect the authored site
+- `/astraextera reroll [seed]` for server admins to replace the saved cosmology and update every player's sky
 - **Ctrl+Shift+S** opens the in-game galaxy panel: the same facts, face-on and edge-on figures, all-sky view, habitable zone, full system and companion-planet portraits as the HTML preview.
 - The full-system figure compresses distance so the inner orbits stay readable next to an ice giant twenty times further out, and draws bodies at their real radii. The portrait strip below it draws each companion as a disc, with its bands, its storm, its moons, and its rings at the tilt and heading they run.
 - Unresolved galactic glow is broken into an equatorial cubemap and drawn behind AstraTerra's star billboards, so the band of light is on the sky rather than only on the preview PNG.
 - `make galaxy-preview` writes a random-seed static HTML preview (`dist/galaxy-preview.html`) and opens it. Pass `SEED=42` to pin a known test galaxy.
 - `make star-catalog` writes `dist/star-catalog.v1.json` without opening the preview.
 - `make celestial-textures` rebuilds the shipped planet, moon and ring textures from the source art: giants from the `gas_giant*_NNN.png` renders, moons from `image.png`, rings from `ring_assets.zip`. It prefers a body drawn on its own and falls back to a contact sheet for whatever is left, finds each body whether its sheet is on black, on white or on nothing, cuts it out with a circular alpha, strips the filenames some ring renders have burned into them, fills the margin around each body with its own colour so nothing dark bleeds into its rim, and divides out the limb darkening the render baked in -- the mod lights these bodies itself, so a second set of shadows in the texture would fight it. The outputs are committed; the game never runs this step.
+
+## Rerolling the cosmology
+
+The cosmology currently controls the sky independently of terrain generation. Server admins with
+the `controlserver` privilege can use `/astraextera reroll` to choose a new random cosmology seed,
+or `/astraextera reroll 42` to use a specific seed. In the server console, omit the leading `/`.
+Seeds are signed 64-bit integers; `/astraextera galaxy` reports the current one.
+
+Rerolling replaces the saved galaxy, star catalog, and local system, then sends them to all connected
+players. The new sky survives a server restart and is sent to players who join later. Terrain and the
+world-generation seed stay unchanged. Reopen the **Ctrl+Shift+S** panel to inspect the new cosmology.
+Existing constellation drawings and star names are kept, but their star IDs now refer to the new
+catalog, so their positions and shapes will change.
 
 ## How the star count is decided
 
@@ -51,9 +65,9 @@ against the local stellar density inside those horizons, so it follows the locat
 Earth sees roughly 9,100 stars at magnitude 6.5, which is the calibration anchor. Where the sky is
 crowded the render budget runs out before the eye does, so the catalog becomes a brightest-first
 slice and the remainder stays as unresolved glow in the Milky Way band -- which is what that band
-physically is. Sampling runs once on the server when the save is authored (or when an older save
-is loaded without a stored catalog), then the catalog is written next to the placement. Clients
-never resample.
+physically is. Sampling runs on the server when the save is authored, an admin rerolls the cosmology,
+or an older save is loaded without a stored catalog, then the catalog is written next to the
+placement. Clients never resample.
 
 ## How the sky reaches AstraTerra
 
