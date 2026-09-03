@@ -2,6 +2,9 @@
 
 ![AstraExtera](astra_extera.png)
 
+Copyright 2026 Leandro G. Almeida. Licensed under the
+[GNU Affero General Public License, version 3 only](LICENSE) (`AGPL-3.0-only`).
+
 Vintage Story 1.22 mod. Depends on [AstraTerra](https://github.com/lalmei/astraterra) **v0.10.0 or newer** for the sky engine, then replaces Earth's catalog with a **server-authored** procedural sky so every player sees the same heavens.
 
 Worlds are not dropped into a random starfield. The save first draws a Milky Way analog, then a thin-disk location inside that galaxy's habitable annulus, and only keeps sites metal-rich enough for iron cores and ores. A host star and a habitable orbit come next, then the visible sky.
