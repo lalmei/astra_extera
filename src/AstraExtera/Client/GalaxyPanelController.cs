@@ -10,8 +10,8 @@ namespace AstraExtera.Client;
 /// <remarks>
 /// The panel is built from the sky the server sent, so before that arrives there is nothing
 /// to show and the player is told so rather than being given an empty window. The built panel is
-/// kept and reopened; it is rebuilt only when the world seed changes, which is what happens on
-/// joining a different world in the same session.
+/// kept and reopened; it is rebuilt when the cosmology seed changes, either after a server reroll
+/// or when joining a different world in the same session.
 /// </remarks>
 public sealed class GalaxyPanelController
 {
