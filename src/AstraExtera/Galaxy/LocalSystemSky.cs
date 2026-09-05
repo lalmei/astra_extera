@@ -55,8 +55,8 @@ public sealed record AuthoredMeteorShower(
     double PeakZenithHourlyRate);
 
 /// <summary>
-/// The local system's wanderers: companion planets on Keplerian tracks, leftover comets scattered
-/// by the shepherd giant, and the meteor showers those comets leave on the observer's orbit.
+/// The local system's wanderers: companion planets on simplified Keplerian tracks, authored comet
+/// apparitions, and meteor showers scheduled from those comets.
 /// <para>
 /// Authored once on the server from the stored placement. Companion planets are the bodies already
 /// drawn in the system diagram; sibling moons of a habitable moon stay off the planet catalog,

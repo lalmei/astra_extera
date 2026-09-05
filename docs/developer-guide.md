@@ -191,6 +191,11 @@ There is no field-by-field migration layer.
 `GalaxyPlacementPacket` carries the same three encoded payloads. This duplicates encoded bytes rather
 than protobuf-serializing every model type, so save and network decoding use the same codecs.
 
+The repository has no machine-readable JSON Schema files for these payloads or the texture manifest.
+The C# records, codecs, and round-trip tests are the source of truth. A numeric field called
+`schema_version` is not by itself a migration contract; only the validation paths described above
+currently enforce one.
+
 Changing a generator without raising the placement schema preserves old placements. Changing only
 star sampling does not affect a save that already has a stored field. Schema changes therefore need
 an explicit decision about whether an existing sky remains valid. Raising the placement schema
@@ -236,6 +241,11 @@ AstraTerra renders the replacement stars and companion planets as celestial bill
 companion planets are points with generated photometric values and tints. `LocalSystemSkyExport` does
 not supply AstraTerra `Disc` or `Moons` data, so telescope magnification does not resolve generated
 companions into panel-style discs.
+
+AstraTerra owns the star and wanderer brightness curves, horizon fade, daylight gating, moonlight
+response, and instrument exposure checks. AstraExtera supplies catalog magnitudes and colors but does
+not add another visibility policy for those objects. Its galactic glow is the exception described
+below.
 
 The replacement star catalog has no deep-sky objects. No telescope plates are generated. Guide-star
 groups and sky cultures are also empty; the `IsGuideStar` flag on the first 58 stars supplies drawing
@@ -423,3 +433,25 @@ renderer boundary. For example:
 Update the player guide whenever a model change alters something visible, an interaction condition,
 or the meaning of the galaxy panel. Update the placement schema only after deciding how existing
 saves and constellation IDs should behave.
+
+### Manual runtime checks
+
+After a rendering, networking, catalog, or coordinate change, verify a restarted game rather than
+stopping at `make test`:
+
+1. Load a planet-world cosmology. Confirm `/astraextera galaxy` reports its seed and catalog counts,
+   and that the panel's moon count agrees with the visible near bodies at a dark hour.
+2. Load a moon-world cosmology. Confirm the parent stays fixed, phases with the sun, and orders
+   sibling occlusion correctly.
+3. Observe at the equator and in both hemispheres. Confirm the fixed stars and generated glow keep
+   registration while latitude changes.
+4. Travel far enough east or west to make longitude visible. Confirm the sun, fixed stars, glow,
+   Sextant, Astrolabe, and displayed local time agree.
+5. Join from a second client. Confirm both clients receive identical catalog counts and panel facts.
+6. Reroll to an explicit seed. Confirm connected clients update, the result survives a server
+   restart, and the terrain seed remains unchanged.
+7. Check `StarfieldMode`, both Milky Way passes, `MoonArt`, telescope zoom, constellation drawing,
+   Sextant records, and Sky Disc marks against the limitations in the player guide.
+
+Record the cosmology seed, observer world kind, coordinates, date, hour, mod versions, and relevant
+log lines for any failed visual check. The automated suite does not currently provide this evidence.

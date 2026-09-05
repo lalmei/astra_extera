@@ -7,8 +7,8 @@ using Vintagestory.API.Client;
 namespace AstraExtera.Sync;
 
 /// <summary>
-/// Hands this world's stored sky to AstraTerra: stars, companion planets, comets, and the meteor
-/// showers those comets leave on the observer's orbit.
+/// Hands this world's stored sky to AstraTerra: stars, companion planets, authored comet
+/// apparitions, and the meteor showers associated with those comets.
 /// <para>
 /// AstraTerra loads its shipped Earth catalogs from assets before a client knows which world it is
 /// joining, so the swap can only happen once the server's galaxy packet has arrived. Earth's
