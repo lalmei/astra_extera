@@ -1,129 +1,97 @@
 <!--
-  AstraExtera — ModDB description, in the HTML the mods.vintagestory.at TinyMCE editor accepts.
+  AstraExtera ModDB description, in the HTML accepted by the mods.vintagestory.at editor.
 
-  Keep this file in sync with README.md by hand, then paste everything below this comment
-  into the ModDB description source view.
+  Keep the mechanics consistent with README.md and docs/player-guide.md, then paste everything below
+  this comment into the ModDB description source view.
 
-      make moddb-preview   render it locally, with working spoilers and real local images
+      make moddb-preview   render it locally, with working spoilers and local images
       make moddb-copy      put the paste-ready HTML on the clipboard
 
-  Images are marked with <!- - image: ... - -> comments. Upload them to the mod page and
-  replace each marker with the site's own <img> tag before saving the public description.
-  The remaining markup uses plain tags, inline styles, and the site's own spoiler classes.
+  Upload astra_extera.png to the mod page and replace the image marker with the site's img tag.
 -->
 
 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 960px; margin: 0 auto; background: #f0ebe0; padding: 24px; border-radius: 6px;">
-<!-- image: astra_extera.png — AstraExtera logo -->
+<!-- image: astra_extera.png - AstraExtera logo -->
 
-<p>AstraExtera gives every Vintage Story save a sky born with the world. It places an Earth-like home inside a generated galaxy, authors the star that warms it and the system around it, then hands one stored sky to AstraTerra so every player looks up at the same heavens.</p>
+<p><strong>AstraExtera gives each Vintage Story save a generated astronomical setting.</strong> The server authors and stores a galaxy, a location inside it, a visible star field and a local planetary system. Every client receives the same result. AstraTerra draws that sky and supplies the observing tools.</p>
 
-<p>The result is not Earth's constellations with different scenery. The density of stars, the Milky Way's shape, the celestial pole, the companion planets, the comets, and even the giant that hangs over a moon world all belong to that save.</p>
+<p>Press <strong>Ctrl+Shift+S</strong> to inspect the generated galaxy and system. Then use AstraTerra's Sky Disc, telescope, Sextant and Astrolabe to observe the sky, record measurements and draw your own constellations.</p>
+
+<div style="background: #dce8f5; border: 1px solid #a9c6e4; border-radius: 4px; padding: 12px 16px; margin: 0 0 16px; color: #1f3b5c; line-height: 1.6;">
+<p style="margin: 0;"><strong>&#129513; Requirements:</strong> Vintage Story <strong>1.22.2 or newer</strong> and <a href="https://mods.vintagestory.at/show/mod/50376"><strong>AstraTerra 0.10.0 or newer</strong></a>. Enable both mods.</p>
+</div>
 
 <div style="background: #f7e9c3; border: 1px solid #ddc27e; border-radius: 4px; padding: 12px 16px; margin: 0 0 16px; color: #6b4e12; line-height: 1.6;">
-<p style="margin: 0 0 8px;"><strong>&#9888; Initial alpha release</strong></p>
-<p style="margin: 0 0 8px;">Version 0.1.0 is the first public release. Procedural galaxies, stored star catalogs, local systems, giant-planet skies, and the inspection panel are implemented. Procedural deep-sky objects are not yet generated.</p>
+<p style="margin: 0 0 8px;"><strong>&#9888; What stays Vintage Story's</strong></p>
+<p style="margin: 0;">The generated radius, gravity, temperature and orbital facts describe the setting shown in the galaxy panel. They do not change terrain, ores, climate, player gravity, the calendar, day length, seasons or world generation. The visible ordinary moon is hidden, but moonlight and the calendar phase still come from Vintage Story.</p>
 </div>
 
-<div style="background: #dce8f5; border: 1px solid #a9c6e4; border-radius: 4px; padding: 12px 16px; margin: 0 0 16px; color: #1f3b5c; line-height: 1.6;">
-<p style="margin: 0 0 8px;"><strong>&#129513; Requirements</strong></p>
-<p style="margin: 0 0 8px;">Vintage Story <strong>1.22.2 or newer</strong> and <a href="https://mods.vintagestory.at/show/mod/50376"><strong>AstraTerra 0.10.0 or newer</strong></a>. Enable AstraTerra and AstraExtera together; AstraExtera replaces the catalogs and nearby bodies that AstraTerra renders.</p>
+<h3>Start observing</h3>
+
+<ol>
+<li>Join a world and wait for the server's sky to arrive.</li>
+<li>Press <strong>Ctrl+Shift+S</strong>. The <strong>Galaxy panel</strong> binding can be changed in Controls.</li>
+<li>Open <strong>H &gt; Astronomy</strong> for recipes and item instructions.</li>
+<li>Make a Sky Disc to mark sunrise or sunset, or use a telescope with a writable book in the left hand and ink and quill in the inventory to draw a constellation.</li>
+<li>Use a Sextant to record a light's altitude and bearing. Compare sightings to find what moved against the fixed stars.</li>
+</ol>
+
+<p>A light may be below the horizon now, visible only at another hour or season, or unable to rise at the current latitude. Comets have limited return windows. Time, world position, open sky, darkness and weather all matter to an observation.</p>
+
+<h3>The generated sky</h3>
+
+<div class="spoiler" style="border: 1px solid #cfc9be; border-radius: 4px; margin: 20px 0; overflow: hidden; background: #eee9de;">
+<div class="spoiler-toggle" style="padding: 12px 15px; background: #e5dfd4; font-size: 1.1em; font-weight: 600; color: #333; text-align: center;">&#9662;&nbsp; &#127756; Galaxy, location and stars</div>
+<div class="spoiler-text" style="padding: 15px; line-height: 1.6; color: #333; background: #eee9de; border-top: 1px solid #cfc9be;">
+<p>The generator usually creates an analytic spiral galaxy and sometimes an elliptical. It chooses a metal-rich habitable site, a host star and a local system. These are astronomical metadata, not a replacement for Vintage Story's terrain simulation.</p>
+<p>The visible catalog is sampled from the site's stellar density, a luminosity function and dust extinction. It keeps stars down to magnitude 6.5 until the 10,000-star budget is full. Unresolved light becomes a generated galactic band behind the stars.</p>
+</div>
 </div>
 
-<div style="background: #d4edda; border: 1px solid #a3d4ad; border-radius: 4px; padding: 12px 16px; margin: 0 0 16px; color: #2d5a3a; line-height: 1.6;">
-<p style="margin: 0 0 8px;"><strong>&#10003; Contributions welcome</strong></p>
-<p style="margin: 0 0 8px;">Code, testing, screenshots, translations, astronomy checks, and celestial art are all welcome at the <a href="https://github.com/lalmei/astra_extera">repository and issue tracker</a>.</p>
+<div class="spoiler" style="border: 1px solid #cfc9be; border-radius: 4px; margin: 20px 0; overflow: hidden; background: #eee9de;">
+<div class="spoiler-toggle" style="padding: 12px 15px; background: #e5dfd4; font-size: 1.1em; font-weight: 600; color: #333; text-align: center;">&#9662;&nbsp; &#129680; Planets, comets and showers</div>
+<div class="spoiler-text" style="padding: 15px; line-height: 1.6; color: #333; background: #eee9de; border-top: 1px solid #cfc9be;">
+<p>The local system can contain inner rocky worlds, a shepherd gas giant beyond the snow line, another gas giant and outer ice giants. Their generated Keplerian elements produce the points of light that move against the stars.</p>
+<p>Each save also receives two to four returning comet apparitions and meteor showers associated with them. The planet elements, comet tracks and shower schedules are game-scale approximations, not a gravitational integration.</p>
+</div>
 </div>
 
-<h3>What is new</h3>
+<div class="spoiler" style="border: 1px solid #cfc9be; border-radius: 4px; margin: 20px 0; overflow: hidden; background: #eee9de;">
+<div class="spoiler-toggle" style="padding: 12px 15px; background: #e5dfd4; font-size: 1.1em; font-weight: 600; color: #333; text-align: center;">&#9662;&nbsp; &#127769; Planet worlds and moon worlds</div>
+<div class="spoiler-text" style="padding: 15px; line-height: 1.6; color: #333; background: #eee9de; border-top: 1px solid #cfc9be;">
+<p>A planet world can have zero to three generated moons. Each rises and sets according to its generated month.</p>
+<p>On a moon world, the playable world is tidally locked to a gas giant. The giant stays fixed in the sky, changes phase with the sun and can span tens of degrees. Sibling moons may cross its face or pass behind it. Twelve giant images, fifty-four moon images and sixteen ring images are chosen and composited from the generated body's color and geometry.</p>
+</div>
+</div>
 
-<div style="background: #e4e9dc; border: 1px solid #b9c8a4; border-radius: 4px; padding: 12px 16px; margin: 0 0 16px; color: #38431f; line-height: 1.6;">
-<p style="margin: 0 0 8px;"><strong>&#127756; v0.1.0: every world gets its own sky</strong></p>
-<p style="margin: 0 0 8px;">AstraExtera's first release gives a world an astronomical address before it gives it a sky.</p>
+<div class="spoiler" style="border: 1px solid #cfc9be; border-radius: 4px; margin: 20px 0; overflow: hidden; background: #eee9de;">
+<div class="spoiler-toggle" style="padding: 12px 15px; background: #e5dfd4; font-size: 1.1em; font-weight: 600; color: #333; text-align: center;">&#9662;&nbsp; &#128214; Observations and constellations</div>
+<div class="spoiler-text" style="padding: 15px; line-height: 1.6; color: #333; background: #eee9de; border-top: 1px solid #cfc9be;">
+<p>The generated catalog has no inherited Earth constellation figures or sky culture. Players draw their own lines into books or cut one figure into a Sky Disc. The server stores the sampled stars so normal reloads preserve the numeric star IDs used by those records.</p>
+<p>AstraExtera does not yet generate deep-sky objects. Generated companion planets remain points in the telescope because their panel portraits are diagrams, not telescope plates.</p>
+</div>
+</div>
+
+<h3>Configuration and known limits</h3>
+
 <ul>
-<li><strong>A world is placed inside a galaxy.</strong> Spiral galaxies are common, giant ellipticals are rare, and the save keeps only sites in a habitable annulus with enough heavy elements to make iron cores and ores. The playable world is an Earth analog with roughly Earth-like radius, gravity, bulk iron, and temperature.</li>
-<li><strong>The stars follow the place.</strong> The visible catalog is sampled from the stellar density and dust extinction around that site. A sparse outer-disk world can have a few thousand naked-eye stars; a crowded inner site can fill the 10,000-star render budget.</li>
-<li><strong>The galaxy is on the sky.</strong> Stars too faint or numerous to resolve remain as a generated galactic glow behind AstraTerra's star billboards, with a world-specific celestial pole deciding how the band wheels overhead.</li>
-<li><strong>The local system has an architecture.</strong> A K-, G-, or F-type host, with M dwarfs permitted when the habitable world is a moon, anchors a liquid-water orbit, inner rocky worlds, a shepherd giant beyond the snow line, and optional outer giants on separated orbits. The comets scattered by the giant and the meteor showers fed by those comets join the sky too.</li>
-<li><strong>Giants are bodies, not markers.</strong> They carry cloud bands, rotation, a long-lived storm, tilted rings with their own composition, and families of moons. Twelve giant textures, sixteen ring systems, and fifty-four moon textures let the rendered face follow the generated body's colour and geometry.</li>
-<li><strong>A moon world has a moon world's sky.</strong> Its parent giant hangs fixed and tens of degrees wide, phases with the sun, and shows its rings edge-on. Sibling moons drift past it and cross its face and rings. Vintage Story's ordinary moon steps aside.</li>
-<li><strong>A planet world has its own moons.</strong> Each rises and sets on a month of its own, at the size and brightness the generator gave it, and about one world in six is authored with no moon at all. Vintage Story's ordinary moon steps aside there too, while moonlight, the calendar phase, and the day cycle stay as they were.</li>
-<li><strong>Everyone gets the same answer.</strong> The server authors the galaxy, star catalog, and local sky once, stores them with the save, and sends them in the join packet. Clients render the stored sky instead of rolling their own.</li>
-<li><strong>The result is inspectable.</strong> Press <strong>Ctrl+Shift+S</strong> for an in-game panel with face-on and edge-on galaxy figures, an all-sky view, the full local system, and portraits of every companion. <code>/astraextera galaxy</code> reports the same facts in text.</li>
+<li>AstraExtera has no configuration file. AstraTerra's <code>ModConfig/astraterra.json</code> controls its renderer, instruments, coordinate grids, clock and longitude-aware sun.</li>
+<li>AstraTerra's shipped Earth Milky Way is a separate render pass. If two bands overlap, set <code>MilkyWayBrightness</code> to <code>0.0</code> with the client closed, then restart. This setting disables AstraTerra's band, not AstraExtera's generated glow.</li>
+<li><code>.stars starfield vanilla</code> does not disable AstraExtera's glow or nearby bodies.</li>
+<li><code>MoonArt</code> cannot restore the ordinary moon while AstraExtera's near-body catalog is active.</li>
+<li>On a non-realistic-climate world, Vintage Story may report one latitude everywhere. The sky then does not tilt as you travel north or south.</li>
 </ul>
-</div>
 
-<h3>Features</h3>
+<h3>Server commands</h3>
 
-<div class="spoiler" style="border: 1px solid #cfc9be; border-radius: 4px; margin: 20px 0; overflow: hidden; background: #eee9de;">
-<div class="spoiler-toggle" style="padding: 12px 15px; background: #e5dfd4; font-size: 1.1em; font-weight: 600; color: #333; text-align: center;">&#9662;&nbsp; &#127756; A place in a generated galaxy.</div>
-<div class="spoiler-text" style="padding: 15px; line-height: 1.6; color: #333; background: #eee9de; border-top: 1px solid #cfc9be;">
-<p>The world seed first chooses a Milky Way analog and a galactocentric site, not a decorative background. Spiral arms are smooth density waves; rare elliptical galaxies use a habitable spheroid outside their dense core. Metallicity decides whether the site can make the iron core and ores an Earth-like world needs.</p>
-<p>The home world then receives its own host star, orbit, radius, gravity, bulk iron fraction, surface temperature, and celestial pole. Those facts are generated once and remain part of the save.</p>
-</div>
-</div>
+<p><code>/astraextera galaxy</code> reports the current cosmology and local system. An administrator with <code>controlserver</code> can run <code>/astraextera reroll</code> for a new random cosmology or <code>/astraextera reroll 42</code> for a signed 64-bit seed. Omit the slash in the server console.</p>
 
-<div class="spoiler" style="border: 1px solid #cfc9be; border-radius: 4px; margin: 20px 0; overflow: hidden; background: #eee9de;">
-<div class="spoiler-toggle" style="padding: 12px 15px; background: #e5dfd4; font-size: 1.1em; font-weight: 600; color: #333; text-align: center;">&#9662;&nbsp; &#10024; Stars that belong to that location.</div>
-<div class="spoiler-text" style="padding: 15px; line-height: 1.6; color: #333; background: #eee9de; border-top: 1px solid #cfc9be;">
-<p>No fixed star count is chosen. The sampler integrates a stellar luminosity function through the local density and accumulating dust extinction, then keeps every star bright enough to see until the 10,000-star catalog budget is full. Brightness-ranked ids are stored with the save, so player-drawn constellations do not scramble when the generator changes later.</p>
-<p>The unresolved remainder becomes the galaxy's own glow, drawn behind the stars and correctly hidden by terrain. Earth guide groups, sky cultures, and deep-sky objects are cleared rather than attached to unrelated procedural stars.</p>
-</div>
-</div>
+<p>A reroll stores and broadcasts a replacement galaxy placement, star field and local sky. Terrain and the world-generation seed do not change. Existing constellation records and star names remain, but their star IDs now refer to the replacement catalog, so old drawings change.</p>
 
-<div class="spoiler" style="border: 1px solid #cfc9be; border-radius: 4px; margin: 20px 0; overflow: hidden; background: #eee9de;">
-<div class="spoiler-toggle" style="padding: 12px 15px; background: #e5dfd4; font-size: 1.1em; font-weight: 600; color: #333; text-align: center;">&#9662;&nbsp; &#129680; A complete local system.</div>
-<div class="spoiler-text" style="padding: 15px; line-height: 1.6; color: #333; background: #eee9de; border-top: 1px solid #cfc9be;">
-<p>The habitable orbit sits among up to three inner rocky worlds and a shepherd gas giant beyond the snow line, with an optional second gas giant and one or two ice giants farther out. Every new body must remain Hill-separated from the ones already placed.</p>
-<p>Companion planets follow Keplerian tracks around the authored star. Leftover ice becomes returning comets, and each comet leaves a meteor shower where its debris intersects the observer's orbit. These catalogs replace AstraTerra's Earth wanderers instead of being mixed into them.</p>
-</div>
-</div>
+<h3>AstraTerra and development</h3>
 
-<div class="spoiler" style="border: 1px solid #cfc9be; border-radius: 4px; margin: 20px 0; overflow: hidden; background: #eee9de;">
-<div class="spoiler-toggle" style="padding: 12px 15px; background: #e5dfd4; font-size: 1.1em; font-weight: 600; color: #333; text-align: center;">&#9662;&nbsp; &#127771; Giants with faces, rings, and moons.</div>
-<div class="spoiler-text" style="padding: 15px; line-height: 1.6; color: #333; background: #eee9de; border-top: 1px solid #cfc9be;">
-<p>A generated giant has an obliquity, rotation period, cloud-band pattern, long-lived storm, equatorial rings, and a family of moons outside those rings. Ring composition &mdash; bright ice, rock and dust, or sooted debris &mdash; changes the light the planet adds to the sky.</p>
-<p>The texture library chooses the supplied giant whose colour best matches the authored cloud decks, then lays the selected ring onto it at the generated tilt, heading, and radius. The far half passes behind the globe, the near half crosses in front, and AstraTerra lights the result from the real sun direction.</p>
-</div>
-</div>
+<p><a href="https://mods.vintagestory.at/show/mod/50376">AstraTerra</a> is the sky engine and observing game. AstraExtera is the save-specific catalog author. The current integration uses AstraTerra's full-catalog replacement API; it is not an additive catalog registry.</p>
 
-<div class="spoiler" style="border: 1px solid #cfc9be; border-radius: 4px; margin: 20px 0; overflow: hidden; background: #eee9de;">
-<div class="spoiler-toggle" style="padding: 12px 15px; background: #e5dfd4; font-size: 1.1em; font-weight: 600; color: #333; text-align: center;">&#9662;&nbsp; &#127769; The sky from a habitable moon.</div>
-<div class="spoiler-text" style="padding: 15px; line-height: 1.6; color: #333; background: #eee9de; border-top: 1px solid #cfc9be;">
-<p>A habitable moon is tidally locked to its giant, so the giant never rises or sets. It hangs in one place, phases with the sun, and can span tens of degrees. Its rings appear almost as a line because the moon formed and travels in the same plane.</p>
-<p>Sibling moons drift past the giant according to the difference between their orbit and yours, crossing its face and rings as they go. The ordinary Vintage Story moon is hidden, while the world's day cycle, moonlight, and calendar phase remain untouched.</p>
-</div>
-</div>
-
-<div class="spoiler" style="border: 1px solid #cfc9be; border-radius: 4px; margin: 20px 0; overflow: hidden; background: #eee9de;">
-<div class="spoiler-toggle" style="padding: 12px 15px; background: #e5dfd4; font-size: 1.1em; font-weight: 600; color: #333; text-align: center;">&#9662;&nbsp; &#128421; A server-authored, inspectable sky.</div>
-<div class="spoiler-text" style="padding: 15px; line-height: 1.6; color: #333; background: #eee9de; border-top: 1px solid #cfc9be;">
-<p>The server stores the galaxy placement, brightness-ranked star catalog, local-system sky, and nearby bodies. The join packet carries that exact data to each client, which replaces AstraTerra's catalogs only after the server's answer arrives.</p>
-<p><strong>Ctrl+Shift+S</strong> opens the galaxy panel. Its facts and geometry are shared with the static HTML preview, so the in-game face-on view, edge-on view, all-sky map, full-system figure, and planet portraits cannot quietly disagree with the developer tool.</p>
-</div>
-</div>
-
-<div class="spoiler" style="border: 1px solid #cfc9be; border-radius: 4px; margin: 20px 0; overflow: hidden; background: #eee9de;">
-<div class="spoiler-toggle" style="padding: 12px 15px; background: #e5dfd4; font-size: 1.1em; font-weight: 600; color: #333; text-align: center;">&#9662;&nbsp; &#128736; Server owners and developers.</div>
-<div class="spoiler-text" style="padding: 15px; line-height: 1.6; color: #333; background: #eee9de; border-top: 1px solid #cfc9be;">
-<p>Use <code>/astraextera galaxy</code> to inspect the current save's authored site in text. The stored records carry schema versions so old saves can keep their sky as the generator evolves.</p>
-<p>The cosmology currently controls the sky independently of terrain generation. Server admins with the <code>controlserver</code> privilege can use <code>/astraextera reroll</code> for a new random cosmology seed, or <code>/astraextera reroll 42</code> for a specific signed 64-bit seed. Omit the leading slash in the server console. The command saves the replacement galaxy, stars, and local system and sends them to all connected players; the new sky persists across restarts. Terrain and the world-generation seed stay unchanged. Reopen <strong>Ctrl+Shift+S</strong> to inspect the result. Existing constellation drawings and star names are kept, but now point to stars in the new catalog.</p>
-<p>For development, <code>make galaxy-preview SEED=42</code> writes a pinned static HTML preview, while <code>make star-catalog SEED=42</code> exports the catalog without opening the preview. The mod compiles against a sibling AstraTerra checkout when one is present and otherwise uses the installed dependency.</p>
-</div>
-</div>
-
-<h3>How I test</h3>
-
-<div style="background: #dce8f5; border: 1px solid #a9c6e4; border-radius: 4px; padding: 12px 16px; margin: 0 0 16px; color: #1f3b5c; line-height: 1.6;">
-<p style="margin: 0 0 8px;">Automated tests cover the generated data and code contracts, but they cannot tell me whether the sky looks right or how a collection of mods behaves in-game. I therefore also test manually on a 24 GB M3 MacBook Air with a mostly vanilla-plus set of mods I regularly use: Carry On, Butchering, Better Ruins, Blood Trail, QP Chisel, Buzzwords, Terra Pretty, Watershed, D.E.A.D., Farseer, Footsteps, Food Shelves, Hydrate or Diedrate, RealSmoke, Place On Slabs, Terrain Slabs, Tankards, Vanilla More Molds, Waterfall, and others.</p>
-<p style="margin: 0;">I wish Vintage Story offered an easier way to automate this kind of compatibility testing. If the developers provide one, I intend to add it to this process.</p>
-</div>
-
-<div class="spoiler" style="border: 1px solid #cfc9be; border-radius: 4px; margin: 20px 0; overflow: hidden; background: #eee9de;">
-<div class="spoiler-toggle" style="padding: 12px 15px; background: #e5dfd4; font-size: 1.1em; font-weight: 600; color: #333; text-align: center;">&#9662;&nbsp; &#128218; Relationship to AstraTerra.</div>
-<div class="spoiler-text" style="padding: 15px; line-height: 1.6; color: #333; background: #eee9de; border-top: 1px solid #cfc9be;">
-<p><a href="https://mods.vintagestory.at/show/mod/50376">AstraTerra</a> is the renderer and the observing game: stars, planets, comets, meteor showers, telescopes, the Sextant, the Astrolabe, and player-drawn constellations. AstraExtera is the world author. It replaces AstraTerra's Earth-centered catalogs with the galaxy and system stored in this save.</p>
-<p>That separation keeps the generated world deterministic on the server while reusing AstraTerra's instruments and sky engine on every client.</p>
-</div>
-</div>
+<p>Source, issue tracking, player instructions and the architecture guide are in the <a href="https://github.com/lalmei/astra_extera">AstraExtera repository</a>. Automated tests cover generation, serialization, export, geometry and asset contracts. Visual behavior and mixed-mod compatibility still require in-game testing.</p>
 
 </div>

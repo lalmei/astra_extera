@@ -4,9 +4,9 @@ using System.Text.Json.Serialization;
 namespace AstraExtera.Galaxy;
 
 /// <summary>
-/// One row of AstraTerra's star catalog. Mirrored rather than referenced because AstraExtera does
-/// not link AstraTerra's assembly; the property names must keep matching
-/// <c>astraterra:data/star-catalog.v1.json</c>, which AstraTerra reads with web-style camelCase.
+/// One row of AstraTerra's JSON star-catalog shape. This tool-facing record stays separate from the
+/// runtime <c>AstraTerra.Astronomy.StarCatalogEntry</c>; its property names must keep matching
+/// <c>astraterra:data/star-catalog.v1.json</c>, which uses web-style camelCase.
 /// </summary>
 public sealed record AstraTerraStarEntry(
     int Hip,
