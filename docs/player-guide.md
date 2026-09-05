@@ -8,18 +8,22 @@ stars, planets, comets, meteor showers, and nearby moons.
 
 ## Get started
 
-1. Install Vintage Story 1.22.2 or newer, AstraTerra 0.10.0 or newer, and AstraExtera.
-2. Join a world. The first load can take longer while the server authors and stores the sky.
-3. Press **Ctrl+Shift+S** to open the galaxy panel. **Galaxy panel** in the controls menu changes this
+1. Install Vintage Story 1.22.2 or newer.
+2. Download compatible AstraTerra and AstraExtera release zips. Put both, still zipped, in that game
+   instance's `VintagestoryData/Mods` folder, or install them through the game's mod manager. A
+   dedicated server and the clients joining it must load both code mods.
+3. Enable both mods. AstraExtera requires AstraTerra 0.10.0 or newer.
+4. Join a world. The first load can take longer while the server authors and stores the sky.
+5. Press **Ctrl+Shift+S** to open the galaxy panel. **Galaxy panel** in the controls menu changes this
    key binding.
-4. Press **H**, open **Astronomy**, and choose an instrument. The AstraTerra handbook pages contain
+6. Press **H**, open **Astronomy**, and choose an instrument. The AstraTerra handbook pages contain
    the recipes and item links.
-5. For a first observation, make a Sky Disc and mark a sunrise or sunset. Once you have brass and
+7. For a first observation, make a Sky Disc and mark a sunrise or sunset. Once you have brass and
    glass, use a telescope and a book to draw a constellation.
 
 The panel is an atlas of the generated setting. It contains face-on and edge-on galaxy views, an
 all-sky map, the local system, companion portraits, and the generated facts. `/astraextera galaxy`
-prints the same facts in chat. Neither view identifies the point currently under the crosshair.
+prints a compact summary in chat. Neither view identifies the point currently under the crosshair.
 
 ## Observing tools
 
@@ -190,6 +194,8 @@ settings matter most with AstraExtera:
 | --- | --- | --- | --- |
 | `StarfieldMode` | `astraterra` | Selects AstraTerra stars, both star fields, or Vintage Story stars. It does not disable AstraExtera's generated glow or nearby bodies. | `.stars starfield ...` applies and saves immediately. |
 | `SkyGridMode` | `none` | Shows altitude-azimuth, right-ascension/declination, or both coordinate grids. | `.stars sky-grid ...` applies and saves immediately. |
+| `SolarSystemArt` | `pixel` | Accepts `pixel` or `photo`, but AstraExtera's generated companions have no disc art, so they remain points in either mode. | `.stars solar-system ...` applies and saves immediately. |
+| `MoonArt` | `pixel` | Accepts `pixel`, `photo`, or `vanilla`. AstraExtera supplies separate near-body faces and always hides the ordinary moon disc, so this does not change its generated moons. | `.stars moon ...` applies and saves immediately, but has no visible effect on AstraExtera near bodies. |
 | `CalendarDisplay` | `full` | Shows the full date and clock, clock only, or neither in the character panel. | `.stars calendar ...` applies immediately; reopen the panel. |
 | `LongitudeAwareSun` | `true` | Makes world X affect the sun, daylight, stars, and instruments. The server's value applies to all players. | Change with the game or server stopped, then restart. |
 | `DisplayedClockTime` | `local` | Chooses continuous local solar time, universal world time, or rounded time zones. | Restart after changing it. |
@@ -198,9 +204,17 @@ settings matter most with AstraExtera:
 | `GuideStarHighlightStrength` | `1.15` | Scales highlighted guide stars used as drawing anchors. | No command; edit with the client stopped and restart. |
 | `DebugMeteorRateMultiplier` | `1.0` | Multiplies meteor spawn frequency for testing. Valid range: 0.0 to 100.0. | No command; edit with the client stopped and restart. |
 
-`SolarSystemArt` does not add discs to AstraExtera's generated companion planets, and `MoonArt` does
-not replace AstraExtera's near-body faces. `.stars render milkyway off` temporarily disables
-AstraTerra's Milky Way for the current client session; it does not disable AstraExtera's glow.
+Valid values for `StarfieldMode` are `astraterra`, `both`, and `vanilla`. Valid values for
+`SkyGridMode` are `none`, `horizontal`, `equatorial`, and `both`. `CalendarDisplay` accepts `full`,
+`clock`, or `none`; `DisplayedClockTime` accepts `local`, `universal`, or `zones`.
+
+Four keys are present in AstraTerra's generated file but have no effect in its current build:
+`SelectionSnapRadiusDeg` (`1.0`), `ShowMinimalHud` (`true`), `ShowReticle` (`true`), and
+`DebugGuideStarEmphasisDefault` (`false`). AstraExtera does not consume them either.
+
+`.stars render milkyway off` temporarily disables AstraTerra's Milky Way for the current client
+session; it does not disable AstraExtera's glow. `.stars render` choices are diagnostic state and
+return to their defaults when the client restarts.
 
 ## Rerolling a save's sky
 

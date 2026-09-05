@@ -9,8 +9,8 @@ namespace AstraExtera.Client;
 
 /// <summary>
 /// Draws the unresolved galactic glow as six cube faces behind AstraTerra's star billboards.
-/// Vanilla's night cubemap is already suppressed, so without this pass the band of light is only
-/// the preview PNG.
+/// This pass is independent of AstraTerra's shipped Milky Way and its render-path switches; without
+/// this pass, AstraExtera's generated band appears only in the preview and galaxy panel.
 /// </summary>
 public sealed class GalaxyGlowRenderer : IRenderer
 {

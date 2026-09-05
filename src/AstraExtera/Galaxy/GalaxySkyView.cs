@@ -51,8 +51,8 @@ public static class GalaxySkyView
     }
 
     /// <summary>
-    /// Unresolved integrated light only: the band the sampler left behind. Stars are a separate
-    /// overlay so this map can sit behind them as a sky background.
+    /// Integrated surface brightness used for the unresolved band. This density integral is
+    /// independent of the sampled star list; stars are a separate overlay.
     /// </summary>
     public static byte[] RenderGlowRgb(GalaxyPlacement placement)
     {

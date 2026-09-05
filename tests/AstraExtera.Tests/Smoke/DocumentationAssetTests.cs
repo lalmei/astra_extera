@@ -6,6 +6,30 @@ namespace AstraExtera.Tests.Smoke;
 
 public sealed class DocumentationAssetTests
 {
+    [Theory]
+    [InlineData("README.md")]
+    [InlineData("docs/player-guide.md")]
+    [InlineData("docs/developer-guide.md")]
+    public void Local_Markdown_Links_Resolve(string relativePath)
+    {
+        var sourcePath = Path.Combine(RepositoryRoot, relativePath);
+        var sourceDirectory = Path.GetDirectoryName(sourcePath)!;
+
+        foreach (Match match in Regex.Matches(File.ReadAllText(sourcePath), @"\[[^\]]+\]\(([^)]+)\)"))
+        {
+            var link = match.Groups[1].Value;
+            if (link.StartsWith('#')
+                || Uri.TryCreate(link, UriKind.Absolute, out _))
+            {
+                continue;
+            }
+
+            var localPath = link.Split('#', 2)[0];
+            Assert.True(File.Exists(Path.GetFullPath(localPath, sourceDirectory)),
+                $"Broken local link '{link}' in {relativePath}.");
+        }
+    }
+
     [Fact]
     public void Handbook_Page_Uses_Astronomy_Category_And_Resolved_Lang_Keys()
     {
@@ -30,7 +54,7 @@ public sealed class DocumentationAssetTests
     }
 
     [Fact]
-    public void Handbook_Links_Only_To_Existing_AstraTerra_Pages()
+    public void Handbook_Links_Use_Known_AstraTerra_Page_Codes()
     {
         var lang = JsonSerializer.Deserialize<Dictionary<string, string>>(
             File.ReadAllText(Path.Combine(RepositoryRoot, "assets/astraextera/lang/en.json")))!;

@@ -30,7 +30,8 @@ current limitations. The in-game handbook keeps the same instructions close to t
 ## What changes in the sky
 
 - Fixed stars are sampled from the generated galaxy's stellar density and dust extinction. The
-  brightest 10,000 fit in the catalog; the remainder contributes to an unresolved galactic glow.
+  catalog keeps at most the brightest 10,000, while a separate density integral supplies the
+  unresolved galactic glow.
 - The celestial pole is generated for the save, so the glow and stars can wheel at a different
   angle than Earth's sky.
 - Companion planets use generated, simplified Keplerian elements. Comets use generated apparition
