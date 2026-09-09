@@ -1,4 +1,5 @@
 using AstraExtera.Client;
+using AstraExtera.Config;
 using AstraExtera.Galaxy;
 using AstraTerra;
 using AstraTerra.Astronomy;
@@ -21,12 +22,14 @@ public sealed class AstraTerraSkyBridge
 {
     private readonly ICoreClientAPI api;
     private readonly CelestialTextureLibrary textures;
+    private readonly AstraTerraWorldBridge worldBridge;
     private long? publishedSeed;
 
-    public AstraTerraSkyBridge(ICoreClientAPI api)
+    public AstraTerraSkyBridge(ICoreClientAPI api, AstraExteraConfig config)
     {
         this.api = api;
         textures = new CelestialTextureLibrary(api);
+        worldBridge = new AstraTerraWorldBridge(api, config);
     }
 
     public void Publish(GalaxySky sky)
@@ -71,8 +74,14 @@ public sealed class AstraTerraSkyBridge
         // No world here gets Earth's moon. A moon world gets the giant it orbits, fixed in one spot
         // because it is tidally locked to it, and its sibling moons; a planet world gets the moons
         // the generator gave it, which on some worlds is none.
+        var bodies = NearSky.Author(sky.Placement);
         var nearBodies = NearBodyExport.Build(sky.Placement, textures);
         astraTerra.ReplaceNearBodies(nearBodies);
+
+        // And the half of the same giant that is not a picture: what it does to the light, and the
+        // axis this world turns on because it is locked to it. The server publishes these too --
+        // see AstraTerraWorldBridge -- because they decide what spawns rather than what is drawn.
+        worldBridge.Publish(sky.Placement, bodies);
 
         publishedSeed = sky.Placement.WorldSeed;
         api.Logger.Event(

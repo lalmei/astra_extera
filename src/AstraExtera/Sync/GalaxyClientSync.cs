@@ -1,4 +1,5 @@
 using AstraExtera.Client;
+using AstraExtera.Config;
 using AstraExtera.Galaxy;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
@@ -12,10 +13,10 @@ public sealed class GalaxyClientSync
     private readonly GalaxyGlowRenderer glowRenderer;
     private GalaxySky? sky;
 
-    public GalaxyClientSync(ICoreClientAPI api)
+    public GalaxyClientSync(ICoreClientAPI api, AstraExteraConfig config)
     {
         this.api = api;
-        skyBridge = new AstraTerraSkyBridge(api);
+        skyBridge = new AstraTerraSkyBridge(api, config);
         glowRenderer = new GalaxyGlowRenderer(api);
     }
 

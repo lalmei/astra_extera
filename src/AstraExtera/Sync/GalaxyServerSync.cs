@@ -1,3 +1,4 @@
+using AstraExtera.Config;
 using AstraExtera.Galaxy;
 using Vintagestory.API.Server;
 
@@ -6,12 +7,14 @@ namespace AstraExtera.Sync;
 public sealed class GalaxyServerSync
 {
     private readonly ICoreServerAPI api;
+    private readonly AstraTerraWorldBridge worldBridge;
     private IServerNetworkChannel? channel;
     private GalaxySky? sky;
 
-    public GalaxyServerSync(ICoreServerAPI api)
+    public GalaxyServerSync(ICoreServerAPI api, AstraExteraConfig config)
     {
         this.api = api;
+        worldBridge = new AstraTerraWorldBridge(api, config);
     }
 
     public GalaxySky? Sky => sky;
@@ -36,6 +39,7 @@ public sealed class GalaxyServerSync
         var packet = ToPacket(replacement);
         Store(packet);
         sky = replacement;
+        worldBridge.Publish(replacement.Placement);
         channel.BroadcastPacket(packet);
         api.Logger.Event("AstraExtera rerolled cosmology: seed {0} -> {1}.", previousSeed, nextSeed);
         api.Logger.Event(GalaxyPlacementCodec.Describe(replacement));
@@ -60,6 +64,12 @@ public sealed class GalaxyServerSync
     {
         sky = LoadOrGenerate();
         api.Logger.Event(GalaxyPlacementCodec.Describe(sky));
+
+        // The drawing catalog is the client's business and is published there. This is not: what
+        // lights the ground is what decides whether things spawn on it, and how far the world is
+        // tipped is what decides how long its days are, so a server that did not know either would
+        // be running different rules from the world its players are looking at.
+        worldBridge.Publish(sky.Placement);
     }
 
     private void OnPlayerJoin(IServerPlayer player)

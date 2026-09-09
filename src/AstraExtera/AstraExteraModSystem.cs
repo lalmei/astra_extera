@@ -1,5 +1,6 @@
 using AstraExtera.Client;
 using AstraExtera.Commands;
+using AstraExtera.Config;
 using AstraExtera.Sync;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
@@ -9,6 +10,7 @@ namespace AstraExtera;
 
 public sealed class AstraExteraModSystem : ModSystem
 {
+    private AstraExteraConfig? config;
     private GalaxyServerSync? serverSync;
     private GalaxyClientSync? clientSync;
     private GalaxyPanelController? galaxyPanel;
@@ -20,9 +22,20 @@ public sealed class AstraExteraModSystem : ModSystem
         api.Logger.Event(AstraExteraModMetadata.StartupLogMessage);
     }
 
+    public override void AssetsLoaded(ICoreAPI api)
+    {
+        config = AstraExteraConfigLoader.Load(api);
+        api.Logger.Event(
+            "AstraExtera startup step: config loaded: publishNearBodyLight={0}; publishWorldObliquity={1}; maxMoonWorldObliquity={2:0.0}deg",
+            config.PublishNearBodyLight,
+            config.PublishWorldObliquity,
+            config.GetMaxMoonWorldObliquityDeg());
+    }
+
     public override void StartServerSide(ICoreServerAPI api)
     {
-        serverSync = new GalaxyServerSync(api);
+        config ??= AstraExteraConfigLoader.Load(api);
+        serverSync = new GalaxyServerSync(api, config);
         serverSync.Register();
         new GalaxyServerCommands(() => serverSync.Sky, serverSync.Reroll).Register(api);
         api.Logger.Event("AstraExtera startup step: galaxy and star catalog authored on the server and synced to joining players");
@@ -30,7 +43,8 @@ public sealed class AstraExteraModSystem : ModSystem
 
     public override void StartClientSide(ICoreClientAPI api)
     {
-        clientSync = new GalaxyClientSync(api);
+        config ??= AstraExteraConfigLoader.Load(api);
+        clientSync = new GalaxyClientSync(api, config);
         clientSync.Register();
         galaxyPanel = new GalaxyPanelController(api, () => clientSync.Sky);
         galaxyPanel.Register();
