@@ -165,10 +165,40 @@ The generated near-body motion is a game model. Planet-world moons use circular 
 declination. The moon-world system uses circular, nearly coplanar satellite geometry, and the parent
 giant is fixed. These are intentional approximations rather than a full gravitational integration.
 
+### Your nights are not dark here
+
+A moon world's giant is not a bright moon; it is a second source of daylight. It is tens of degrees
+wide, it is full at local midnight — midnight is exactly when you are on the far side from the sun
+and the giant's whole lit face is turned your way — and it never sets. Nights under a full giant are
+genuinely lit, brightly enough to see and work by, and the light is real: it reaches what spawns,
+what grows, and how cold it gets, on a server as well as on your own screen. Walk far enough east or
+west and it goes away with the giant, which is why the far side of a locked moon is a darker place
+to settle.
+
+The same geometry costs you daylight twice a year. The giant sits on your world's celestial equator,
+so the sun passes behind it once every day — and whenever the sun's seasonal declination is near the
+equator too, that passage is an eclipse. Totality is not total black: the ring of the giant's own
+atmosphere refracts sunlight into the shadow, the way an eclipsed moon goes copper rather than
+invisible. How often an eclipse season comes round is your world's axial tilt, which on a locked moon
+is its giant's: a moon of an upright giant is eclipsed nearly every day, as Io is by Jupiter, while a
+moon of a tipped one gets two seasons a year, as Titan does of Saturn.
+
+That tilt also gives the world its seasons — how far the sun swings north and south over a year, and
+how long your summer days run. It is capped by `MaxMoonWorldObliquityDeg` (45° by default), because
+Vintage Story's own temperature curve follows the calendar rather than the sun and a world tipped
+much further would have polar night at autumn temperatures. Set it lower for a world that behaves
+like the one the game was balanced on, or turn the whole hand-off off with `PublishWorldObliquity`.
+The giant's rings are drawn from its real tilt regardless.
+
+Both halves can be switched off: AstraExtera's `PublishNearBodyLight` stops supplying the light
+source, and AstraTerra's `NearBodyLighting` stops using one. Either off leaves the world's light
+entirely to Vintage Story. The giant is still drawn either way — this is about the ground, not the
+sky.
+
 The ordinary Vintage Story moon disc is hidden in both world types. Vintage Story still supplies
-moonlight, the calendar phase, night length, and the rest of the calendar simulation. Setting
-AstraTerra's `MoonArt` to `vanilla` does not restore the ordinary disc while AstraExtera's near-body
-catalog is active.
+moonlight, the calendar phase, and the rest of the calendar simulation. Setting AstraTerra's
+`MoonArt` to `vanilla` does not restore the ordinary disc while AstraExtera's near-body catalog is
+active.
 
 ## What the generated facts mean
 
@@ -251,6 +281,9 @@ constellation shapes and star names will point elsewhere.
 | `.stars starfield vanilla` still leaves a band or nearby moon | The command controls AstraTerra's star pass. AstraExtera's glow and near bodies are separate renderers/catalogs. There is no complete AstraExtera visual toggle. |
 | A fixed giant never rises or sets | The playable world is a tidally locked moon. The fixed parent is intentional. It moves only when you travel east or west. |
 | The giant is gone and will not come back | You have travelled to the far side of the moon. Its giant is below that horizon permanently; travel back west or east to recover it. |
+| The day went dark for an hour or two | The giant eclipsed your sun. This happens in seasons, and on a moon of a nearly upright giant it happens most days. It is not total: what is left is sunlight refracted through the giant's atmosphere. |
+| Nights are far too bright to be night | You are on a moon world under a full giant, which is what a lit night looks like. Turn it off with AstraExtera's `PublishNearBodyLight` or AstraTerra's `NearBodyLighting` if you would rather have dark ones. |
+| Summers and winters are far more extreme than usual | Your world is tipped as far as its giant is. Lower `MaxMoonWorldObliquityDeg`, or set `PublishWorldObliquity` to false for Earth's 23.4°. |
 | A generated moon vanishes in daylight | Dark moons are lost against a lit sky, the way real ones are. Bright icy moons stay visible; wait for dusk for the rest. |
 | There is no moon | A planet world can be generated without one. The ordinary Vintage Story moon is still hidden. |
 | Moonlight or the calendar phase disagrees with the visible moons | Vintage Story still controls moonlight and calendar phase; AstraExtera replaces only the visible disc and nearby bodies. |

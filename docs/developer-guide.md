@@ -194,8 +194,31 @@ Near-body daylight has two terms of its own, both in AstraTerra's mesh builder. 
 far its own light clears the daytime sky's brightness rather than by its light alone, so
 `NearBody.Brightness` decides whether a generated moon is visible at noon at all. Below its own
 horizon cutoff band a body fades rather than blinking out, which a disc tens of degrees wide
-requires. Neither term changes the world's illumination: solar eclipses by the parent giant and
-planetshine on a locked moon's night are not modelled.
+requires. Neither of those two terms changes the world's illumination — they decide how a body is
+drawn, not how bright the ground is.
+
+The world's illumination is changed, by a separate path. AstraTerra models both halves of what a
+parent giant does to the light — planetshine on a locked moon's night, and solar obscuration when
+the giant crosses the sun — in `NearBodyLight` and `NearBodyLightController`, gated on
+`AstraTerraConfig.NearBodyLighting` (default `true`). AstraExtera is the mod that supplies the
+source: `NearBodyLightExport` builds a `NearBodyLightSource` from the same `ParentGiant` the
+renderer draws, and `AstraTerraWorldBridge` publishes it. Two details are load-bearing:
+
+- The published diameter is `AngularDiameterDeg * DiscFraction` — the globe, not the ringed face. A
+  locked moon sits inside its giant's ring plane and sees the rings edge-on, where they neither
+  light nor eclipse; passing the drawn face through would over-eclipse by the ring margin, which on
+  a heavily ringed giant is more than a factor of two in diameter.
+- The giant is authored at declination ≈ 0 (`NearSky`, up to the orbit's own inclination), because a
+  locked regular satellite orbits in its giant's equatorial plane. That is what makes eclipse
+  seasons possible at all, and it is the same geometry `RingOpennessFromMoon` already assumes.
+
+How often an eclipse season comes round is the world's axial tilt, which on a locked moon is the
+giant's. `NearBodyLightExport.BuildWorldObliquityDeg` publishes it through
+`AstraTerraModSystem.SetWorldObliquity`, clamped to `AstraExteraConfig.MaxMoonWorldObliquityDeg`
+(default 45°) because Vintage Story's seasonal temperature curve follows its calendar rather than
+its sun, and past roughly that a world's daylight and its weather stop describing the same place.
+The giant keeps its full generated tilt for its rings. An upright giant eclipses its moon nearly
+every day, as Jupiter does Io; a tipped one gives two seasons a year, as Saturn does Titan.
 
 ## Persistence and serialization
 
@@ -226,7 +249,9 @@ rewrites constellation ID meaning because the new star field is completely resam
 
 ## Catalog handoff to AstraTerra
 
-`AstraTerraSkyBridge.Publish` performs a full client-side replacement after the server packet arrives:
+`AstraTerraSkyBridge.Publish` performs a full client-side replacement after the server packet
+arrives. The drawing catalogs are client-only; the light source and the world tilt go to both sides,
+through `AstraTerraWorldBridge`:
 
 | AstraTerra method | AstraExtera input |
 | --- | --- |
@@ -234,7 +259,9 @@ rewrites constellation ID meaning because the new star field is completely resam
 | `ReplacePlanetCatalog` | Observer orbit and every generated companion planet. |
 | `ReplaceCometCatalog` | Generated apparition records. |
 | `ReplaceMeteorShowers` | Generated shower records. |
-| `ReplaceNearBodies` | Parent giant and siblings on a moon world, or home moons on a planet world; `HidesVanillaMoon` is always true. |
+| `ReplaceNearBodies` | Parent giant and siblings on a moon world, or home moons on a planet world; `HidesVanillaMoon` is always true. Client only — the entries carry painted faces. |
+| `SetNearBodyLightSource` | **Both sides.** The parent giant reduced to four numbers: globe diameter, hour angle, declination, albedo. `null` on a planet world. The server needs it because the light it computes is what decides night-time mob spawning. |
+| `SetWorldObliquity` | **Both sides.** The parent giant's obliquity, clamped, as the locked moon's own axial tilt. `null` on a planet world, leaving Earth's 23.44°. |
 
 The call is guarded by `publishedSeed`. A second packet carrying the same seed is ignored even if its
 other content differs. Normal rerolls use a new seed, so this is safe for the implemented path. Code
