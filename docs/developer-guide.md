@@ -212,6 +212,12 @@ renderer draws, and `AstraTerraWorldBridge` publishes it. Two details are load-b
   locked regular satellite orbits in its giant's equatorial plane. That is what makes eclipse
   seasons possible at all, and it is the same geometry `RingOpennessFromMoon` already assumes.
 
+  It replaced an authored ±[8°, 26°] band whose stated purpose was to prevent daily eclipses. Worth
+  recording that the band did not achieve that either: a sun swinging ±23.44° still reaches a giant
+  at 8–23°, and a giant tens of degrees wide is reached well past that — so the old geometry
+  produced one lopsided eclipse season a year rather than none. The change is from an accidental
+  asymmetric season to a deliberate symmetric one, not from no eclipses to some.
+
 How often an eclipse season comes round is the world's axial tilt, which on a locked moon is the
 giant's. `NearBodyLightExport.BuildWorldObliquityDeg` publishes it through
 `AstraTerraModSystem.SetWorldObliquity`, clamped to `AstraExteraConfig.MaxMoonWorldObliquityDeg`
