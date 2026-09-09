@@ -33,6 +33,45 @@ public sealed class BootstrapSmokeTests
         Assert.Matches(new Regex(@"make bump-patch-version\s+Increment patch version"), makefile);
     }
 
+    /// <summary>
+    /// The AstraTerra version this mod needs is written down in four places, and the bump tooling
+    /// updates none of them.
+    /// </summary>
+    /// <remarks>
+    /// <c>make bump-version-files</c> rewrites AstraExtera's own version wherever it appears, but
+    /// the dependency is a different number with a different reason to change -- it moves when
+    /// AstraExtera starts relying on something new over the boundary, not when AstraExtera ships.
+    /// So it is maintained by hand, and this is what stops the hand from missing one: a README that
+    /// asks for an older AstraTerra than modinfo actually requires sends a player to a download
+    /// that will not load.
+    /// </remarks>
+    [Fact]
+    public void The_Required_AstraTerra_Version_Is_The_Same_In_Every_Place_It_Is_Written()
+    {
+        using var stream = File.OpenRead(Path.Combine(RepositoryRoot, "modinfo.json"));
+        using var document = JsonDocument.Parse(stream);
+        var required = document.RootElement
+            .GetProperty("dependencies")
+            .GetProperty("astraterra")
+            .GetString();
+
+        Assert.NotNull(required);
+        Assert.Matches(@"^\d+\.\d+\.\d+$", required);
+
+        foreach (var (relativePath, expected) in new[]
+        {
+            ("README.md", $"AstraTerra {required} or newer"),
+            (Path.Combine("docs", "player-guide.md"), $"AstraTerra {required} or newer"),
+            (Path.Combine(".github", "ISSUE_TEMPLATE", "bug_report.yml"), $"placeholder: v{required}"),
+        })
+        {
+            var text = File.ReadAllText(Path.Combine(RepositoryRoot, relativePath));
+            Assert.True(
+                text.Contains(expected, StringComparison.Ordinal),
+                $"{relativePath} does not say \"{expected}\"; modinfo.json requires AstraTerra {required}");
+        }
+    }
+
     private static string RepositoryRoot
     {
         get

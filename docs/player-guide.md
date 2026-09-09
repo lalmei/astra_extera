@@ -12,7 +12,7 @@ stars, planets, comets, meteor showers, and nearby moons.
 2. Download compatible AstraTerra and AstraExtera release zips. Put both, still zipped, in that game
    instance's `VintagestoryData/Mods` folder, or install them through the game's mod manager. A
    dedicated server and the clients joining it must load both code mods.
-3. Enable both mods. AstraExtera requires AstraTerra 0.10.0 or newer.
+3. Enable both mods. AstraExtera requires AstraTerra 0.12.0 or newer.
 4. Join a world. The first load can take longer while the server authors and stores the sky.
 5. Press **Ctrl+Shift+S** to open the galaxy panel. **Galaxy panel** in the controls menu changes this
    key binding.
