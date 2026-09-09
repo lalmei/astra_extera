@@ -36,7 +36,11 @@ public sealed record SiblingOrbit(
 /// the width at the giant's own distance; the drawn width follows the distance from there.
 /// </param>
 /// <param name="DiscFraction">The globe itself as a fraction of that face; 1 when there are no rings.</param>
-/// <param name="HourAngleDeg">Where on the sky it hangs at day zero, measured west from the meridian.</param>
+/// <param name="HourAngleDeg">
+/// Where on the sky it hangs at day zero, measured west from the world's prime meridian. AstraTerra
+/// adds the observer's own longitude when it places the body, so this is where an observer at
+/// longitude zero sees it and not where everyone does.
+/// </param>
 /// <param name="HourAngleRateDegPerDay">
 /// How fast it drifts across the sky in world days, averaged over a synodic period. Zero for the
 /// parent giant, which a locked world keeps in one place; 360 would be the rate of the sun. A
@@ -73,8 +77,15 @@ public sealed record NearBody(
 /// <para>
 /// A habitable moon is tidally locked to its giant -- that is what gives it a day at all, since one
 /// orbit is one day. From the ground the consequence is stark: the giant never rises and never sets.
-/// It hangs at one spot forever, going through its phases as the sun goes round, full near local
-/// midnight and dark at noon. Everything else in this sky moves; that one thing does not.
+/// It hangs over one patch of ground forever, going through its phases as the sun goes round, full
+/// near local midnight and dark at noon. Everything else in this sky moves; that one thing does not.
+/// </para>
+/// <para>
+/// Over one patch of ground, though, and not over one patch of sky. The giant is fixed to the world
+/// rather than to the observer, so travelling east or west carries the horizon past it -- and a
+/// quarter of the way round it sets for good, which is the far side of the moon, the hemisphere that
+/// has never seen the thing it orbits. That is AstraTerra's to apply, since only it knows where the
+/// player is standing; what is authored here is the hour angle at the prime meridian.
 /// </para>
 /// <para>
 /// Sibling moons drift past it at the rate the two orbits beat against each other -- an inner one
@@ -106,10 +117,19 @@ public static class NearSky
     public const double MinAngularDiameterDeg = 0.05;
 
     /// <summary>
-    /// How far off the meridian the giant hangs. Straight overhead would put it on the sun's noon
-    /// track and eclipse the sun every single day, which says more about the model than about the
-    /// world, so the orbit is authored with a tilt and the giant sits off to one side.
+    /// How far off the meridian the giant hangs, for an observer at the world's prime meridian.
+    /// Straight overhead would put it on the sun's noon track and eclipse the sun every single day,
+    /// which says more about the model than about the world, so the orbit is authored with a tilt
+    /// and the giant sits off to one side.
     /// </summary>
+    /// <remarks>
+    /// This is a choice about where the prime meridian falls, not a property every observer gets: a
+    /// player far enough east or west stands under a giant nearer their own meridian. The
+    /// declination below is what actually keeps it off the sun's track, and it does so everywhere.
+    /// A model that wanted real eclipse seasons would put the giant on the moon's equator, where a
+    /// locked regular satellite really sees it, and let the sun's own seasonal declination decide
+    /// when the two meet -- which is a change to the world's daylight rather than to this geometry.
+    /// </remarks>
     public const double MinParentHourAngleDeg = 22.0;
     public const double MaxParentHourAngleDeg = 58.0;
 

@@ -139,4 +139,72 @@ public sealed class AstraTerraHandoverTests
             Assert.True(shower.PeakZenithHourlyRate > 0.0);
         });
     }
+
+    /// <summary>
+    /// The seam this mod lives on. AstraExtera authors a locked world's giant at one hour angle and
+    /// AstraTerra adds the observer's longitude to it, so the two together have to produce a giant
+    /// that is fixed to the ground rather than to the player: it sinks westward as the player travels
+    /// east, and on the far side of the moon it is gone. Compiling against an AstraTerra that placed
+    /// near bodies by sidereal angle alone would silently give every observer the same sky.
+    /// </summary>
+    [Fact]
+    public void A_Locked_Worlds_Giant_Is_Fixed_To_The_Ground_And_Not_To_The_Player()
+    {
+        var placement = MoonWorld();
+        var giant = NearSky.Author(placement).Single(static body => body.Role == NearBodyRole.ParentGiant);
+        var entry = Entry(giant);
+        var sun = new SkyDirection(0.0, -1.0, 0.0);
+
+        // Chosen so the giant starts well up: its authored hour angle is signed, and the latitude
+        // has to be on the same side of the equator as its declination for it to clear the horizon.
+        var latitude = Math.Sign(giant.DeclinationDeg) * 15.0;
+        var atHome = NearBodyRenderModel.Place(entry, 0.0, latitude, 0.0, sun, 0.0);
+        Assert.NotNull(atHome);
+        Assert.True(atHome.AltitudeDeg > 10.0, $"the giant only reached {atHome.AltitudeDeg:0.0} deg at home");
+
+        // Walk the whole world in the direction that carries the giant down, and it goes: an
+        // observer on the far side never sees the planet their world is locked to.
+        var step = -Math.Sign(giant.HourAngleDeg) * 15.0;
+        var setSomewhere = false;
+        for (var longitude = step; Math.Abs(longitude) <= 180.0; longitude += step)
+        {
+            var placed = NearBodyRenderModel.Place(entry, 0.0, latitude, longitude, sun, longitude);
+            setSomewhere |= placed is null;
+        }
+
+        Assert.True(setSomewhere, "the giant stayed up at every longitude on the world");
+
+        // And time alone is not what did it: standing still, it does not move all day.
+        var sixHoursOn = NearBodyRenderModel.Place(entry, 0.25, latitude, 90.0, sun, 0.0);
+        Assert.NotNull(sixHoursOn);
+        Assert.Equal(atHome.AltitudeDeg, sixHoursOn.AltitudeDeg, 9);
+    }
+
+    private static GalaxyPlacement MoonWorld()
+    {
+        for (var seed = 1L; seed < 400L; seed++)
+        {
+            var placement = GalaxyGenerator.Generate(seed);
+            if (placement.WorldKind == ObserverWorldKind.TerrestrialMoon
+                && NearSky.Author(placement).Any(static body => body.Role == NearBodyRole.ParentGiant))
+            {
+                return placement;
+            }
+        }
+
+        throw new InvalidOperationException("No moon world with a parent giant was generated.");
+    }
+
+    /// <summary>The record AstraTerra places, with a one-pixel stand-in for the painted face.</summary>
+    private static NearBodyEntry Entry(NearBody body)
+        => new(
+            body.Id,
+            body.DisplayName,
+            NearBodyKind.ParentPlanet,
+            body.AngularDiameterDeg,
+            body.HourAngleDeg,
+            body.HourAngleRateDegPerDay,
+            body.DeclinationDeg,
+            body.Brightness,
+            new NearBodyFace(1, [unchecked((int)0xFFFFFFFF)], body.DiscFraction));
 }

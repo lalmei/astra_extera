@@ -174,6 +174,29 @@ angle, while orbiting siblings use either a flat angular rate or `NearBodyOrbit`
 about the parent. Planet-world moons use circular motion at fixed declination. This is deliberately
 separate from the heliocentric planet ephemeris.
 
+That authored hour angle is measured **at the world's prime meridian**, and AstraTerra adds the
+observer's longitude to it when placing the body:
+
+```text
+H = authored hour angle + observer longitude
+right ascension = local sidereal angle - observer longitude - authored hour angle
+```
+
+The subtraction matters. Every near body is fixed to the world it is seen from rather than to the
+star field, so deriving right ascension from the local sidereal angle alone cancels longitude
+against itself and pins the body to each player's own sky. With the term in place a ground-fixed
+giant falls behind an observer travelling east at the same rate the sun does, and past roughly a
+quarter of the world it sets: the far side of a tidally locked moon never sees the planet it is
+locked to. `NearSky`'s parent hour-angle range is therefore the offset **at the prime meridian**, not
+the offset every player gets.
+
+Near-body daylight has two terms of its own, both in AstraTerra's mesh builder. A body draws by how
+far its own light clears the daytime sky's brightness rather than by its light alone, so
+`NearBody.Brightness` decides whether a generated moon is visible at noon at all. Below its own
+horizon cutoff band a body fades rather than blinking out, which a disc tens of degrees wide
+requires. Neither term changes the world's illumination: solar eclipses by the parent giant and
+planetshine on a locked moon's night are not modelled.
+
 ## Persistence and serialization
 
 The save contains three blobs:
