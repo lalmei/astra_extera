@@ -1,6 +1,7 @@
 using AstraExtera.Galaxy;
 using AstraExtera.Sync;
 using AstraTerra.Astronomy;
+using AstraTerra.Constellations;
 using Xunit;
 
 namespace AstraExtera.Tests.Sync;
@@ -74,6 +75,24 @@ public sealed class StarCatalogHandoverTests
         Assert.Empty(catalog.SkyCultures);
         Assert.Empty(catalog.DeepSkyObjects);
         Assert.Contains(catalog.Stars, static star => star.IsGuideStar);
+    }
+
+    /// <summary>
+    /// A dug-up sky disc is engraved on the server, from a catalog AstraTerra keeps outside the one
+    /// <c>ReplaceStarCatalog</c> reaches. Handed this sky it finds nothing to engrave, at any latitude
+    /// a maker could have lived at: there are no inherited figures here to have been copied. If
+    /// AstraTerra ever engraved from the stars alone, found discs here would start arriving with
+    /// figures nobody in this world ever drew.
+    /// </summary>
+    [Fact]
+    public void A_Found_Disc_Has_No_Figure_To_Have_Been_Engraved_With()
+    {
+        var catalog = StarCatalogHandover.ToCatalog(GalaxySky.Author(42));
+
+        for (var latitude = -60.0; latitude <= 60.0; latitude += 15.0)
+        {
+            Assert.Empty(FoundSkyDiscFigure.Candidates(catalog, latitude));
+        }
     }
 
     /// <summary>
