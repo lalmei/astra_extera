@@ -161,6 +161,107 @@ public sealed class NearBodyLightExportTests
     }
 
     /// <summary>
+    /// The other half of what the giant does, and the half a player meets first: a generated giant,
+    /// full and overhead at local midnight, lights the night past what a vanilla full moon does.
+    /// </summary>
+    /// <remarks>
+    /// Checked on generated numbers rather than chosen ones. A moon world's night is the case this
+    /// whole hand-off exists for -- Io's nights under a full Jupiter run a couple of hundred times
+    /// brighter than a full moon on Earth -- and a giant that failed to clear vanilla's own
+    /// moonlight would mean the arithmetic had gone wrong somewhere between the generator and the
+    /// light model, even though every individual number still looked plausible.
+    /// </remarks>
+    [Fact]
+    public void A_Generated_Giant_Lights_Its_Night_Past_A_Full_Moon()
+    {
+        var seen = 0;
+        for (long seed = 1; seed <= SeedSweep; seed++)
+        {
+            var placement = GalaxyGenerator.Generate(seed);
+            if (NearBodyLightExport.BuildLightSource(placement) is not { } giant)
+            {
+                continue;
+            }
+
+            seen++;
+
+            // Midnight: the giant overhead, the sun behind the observer, so its whole lit face is
+            // turned this way. That is the geometry a locked moon has every single night.
+            var atMidnight = NearBodyLight.Illumination(
+                giant,
+                new SkyDirection(0.0, 1.0, 0.0),
+                giantAltitudeDeg: 90.0,
+                new SkyDirection(0.0, -1.0, 0.0));
+
+            Assert.True(
+                atMidnight.PlanetshineStrength > NearBodyLight.VanillaFullMoonLight,
+                $"seed {seed}: a full giant {giant.AngularDiameterDeg:0.0} deg wide lit the night "
+                    + $"at {atMidnight.PlanetshineStrength:0.000}, less than a vanilla full moon");
+            Assert.False(
+                atMidnight.SolarObscuration > 0.0,
+                $"seed {seed}: a giant at midnight cannot be eclipsing anything");
+
+            // And it never runs away with the night: even the widest generated giant stays inside
+            // the model's own ceiling, which is well short of daylight.
+            Assert.InRange(atMidnight.PlanetshineStrength, 0.0, NearBodyLight.MaxPlanetshineLight);
+        }
+
+        Assert.True(seen > 0, "no moon world in the sweep published a light source");
+    }
+
+    /// <summary>
+    /// The eclipse geometry read directly rather than swept: at the equinox the sun's declination
+    /// passes through zero, which is exactly where the giant sits, so totality happens on every one
+    /// of these worlds. At the solstice the sun is a whole obliquity away and the giant misses it,
+    /// unless it is wide enough to reach that far -- which is a real and rare kind of world.
+    /// </summary>
+    [Fact]
+    public void The_Sun_Is_Covered_At_The_Equinox_And_Usually_Missed_At_The_Solstice()
+    {
+        var config = new AstraExteraConfig();
+        var seen = 0;
+        var missedAtSolstice = 0;
+
+        for (long seed = 1; seed <= SeedSweep; seed++)
+        {
+            var placement = GalaxyGenerator.Generate(seed);
+            if (NearBodyLightExport.BuildLightSource(placement) is not { } giant)
+            {
+                continue;
+            }
+
+            seen++;
+            Assert.Equal(
+                1.0,
+                NearBodyLight.Obscuration(
+                    Math.Abs(giant.DeclinationDeg),
+                    giant.AngularDiameterDeg,
+                    NearBodyLight.SunAngularDiameterDeg));
+
+            // The solstice separation is this world's own tilt, which is its giant's -- not
+            // Earth's, and that is the whole point of publishing it.
+            var tiltDeg = NearBodyLightExport.BuildWorldObliquityDeg(placement, config)
+                ?? CelestialMath.MeanObliquityDeg;
+            var atSolstice = NearBodyLight.Obscuration(
+                tiltDeg,
+                giant.AngularDiameterDeg,
+                NearBodyLight.SunAngularDiameterDeg);
+
+            if (tiltDeg > (giant.AngularDiameterDeg * 0.5) + NearBodyLight.SunAngularDiameterDeg)
+            {
+                missedAtSolstice++;
+                Assert.Equal(0.0, atSolstice);
+            }
+        }
+
+        Assert.True(seen > 0, "no moon world in the sweep published a light source");
+        Assert.True(
+            missedAtSolstice > 0,
+            "no world in the sweep was tipped far enough to miss its sun at the solstice, so the "
+                + "seasonal half of the cadence is untested");
+    }
+
+    /// <summary>
     /// The acceptance the whole change exists for: every locked moon gets a real eclipse season.
     /// The giant sits on the world's own celestial equator and the sun crosses its hour angle once
     /// every day, so whether that crossing is an eclipse depends only on where the sun's seasonal
