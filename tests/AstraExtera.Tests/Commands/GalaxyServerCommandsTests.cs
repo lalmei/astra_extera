@@ -1,5 +1,6 @@
 using System.Reflection;
 using AstraExtera.Commands;
+using AstraExtera.Config;
 using AstraExtera.Galaxy;
 using AstraExtera.Sync;
 using Vintagestory.API.Common;
@@ -224,8 +225,17 @@ public sealed class GalaxyServerCommandsTests
                 return null;
             });
             var logger = ApiDouble.Create<ILogger>((_, _) => null);
+
+            // No AstraTerra in a test process, which is the same answer a server gets when the
+            // dependency is missing: the world bridge warns and publishes nothing.
+            var modLoader = ApiDouble.Create<IModLoader>((method, _) => method.Name switch
+            {
+                "GetModSystem" => null,
+                _ => throw new NotSupportedException(method.Name)
+            });
             var api = ApiDouble.Create<ICoreServerAPI>((method, _) => method.Name switch
             {
+                "get_ModLoader" => modLoader,
                 "get_ChatCommands" => commands,
                 "get_World" => World,
                 "get_WorldManager" => manager,
@@ -236,7 +246,7 @@ public sealed class GalaxyServerCommandsTests
                 _ => throw new NotSupportedException(method.Name)
             });
             commands = new ChatCommandApi(api);
-            Sync = new GalaxyServerSync(api);
+            Sync = new GalaxyServerSync(api, new AstraExteraConfig());
             Sync.Register();
             new GalaxyServerCommands(() => Sync.Sky, Sync.Reroll).Register(api);
             if (load) events["SaveGameLoaded"]!.DynamicInvoke();
