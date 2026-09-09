@@ -36,12 +36,16 @@ systems.
    network channel, hooks `SaveGameLoaded` and `PlayerJoin`, and registers `/astraextera`.
 2. `SaveGameLoaded` asks `GalaxySkyStore` to resolve the three stored records. Missing records are
    authored and saved. A stale placement schema causes all three records to be rebuilt.
-3. `PlayerJoin` sends one `GalaxyPlacementPacket` containing the placement, star field, and local
+3. The server then tells its own AstraTerra what sky this save has. `AstraTerraCatalogBridge`
+   replaces the star, planet, comet, and shower catalogs; `AstraTerraWorldBridge` sets the near-body
+   light source and the world obliquity. A reroll repeats both.
+4. `PlayerJoin` sends one `GalaxyPlacementPacket` containing the placement, star field, and local
    sky. A reroll stores a complete replacement and broadcasts the same packet.
-4. On each client, `GalaxyClientSync` decodes the packet into a `GalaxySky`.
-5. `AstraTerraSkyBridge.Publish` builds AstraTerra catalogs for stars, planets, comets, meteor
-   showers, and near bodies. It publishes each catalog once per cosmology seed.
-6. `GalaxyGlowRenderer.Apply` builds and uploads the generated galactic-glow cubemap. The galaxy
+5. On each client, `GalaxyClientSync` decodes the packet into a `GalaxySky`.
+6. `AstraTerraSkyBridge.Publish` publishes the same four catalogs through the same
+   `AstraTerraCatalogBridge`, then the painted near bodies, then the light and tilt. It runs once per
+   cosmology seed.
+7. `GalaxyGlowRenderer.Apply` builds and uploads the generated galactic-glow cubemap. The galaxy
    panel reads the same decoded `GalaxySky`.
 
 Clients never run the star sampler or local-sky authoring code during normal play. This is the
@@ -59,6 +63,7 @@ multiplayer consistency boundary: the server stores the result, and clients rend
 | Coordinate frame | [`Galaxy/CelestialOrientation.cs`](../src/AstraExtera/Galaxy/CelestialOrientation.cs), [`Galaxy/ObserverFrame.cs`](../src/AstraExtera/Galaxy/ObserverFrame.cs) | Generated celestial pole and transformations between galactic and equatorial coordinates. |
 | Local visible catalogs | [`Galaxy/LocalSystemSky.cs`](../src/AstraExtera/Galaxy/LocalSystemSky.cs), [`Sync/LocalSystemSkyExport.cs`](../src/AstraExtera/Sync/LocalSystemSkyExport.cs) | Observer orbit, companion elements, comet apparitions, shower schedules, and AstraTerra record conversion. |
 | Nearby bodies | [`Galaxy/NearSky.cs`](../src/AstraExtera/Galaxy/NearSky.cs), [`Sync/NearBodyExport.cs`](../src/AstraExtera/Sync/NearBodyExport.cs) | Parent giant and moon geometry, then AstraTerra near-body records. |
+| AstraTerra handover | [`Sync/AstraTerraCatalogBridge.cs`](../src/AstraExtera/Sync/AstraTerraCatalogBridge.cs), [`Sync/StarCatalogHandover.cs`](../src/AstraExtera/Sync/StarCatalogHandover.cs), [`Sync/AstraTerraSkyBridge.cs`](../src/AstraExtera/Sync/AstraTerraSkyBridge.cs), [`Sync/AstraTerraWorldBridge.cs`](../src/AstraExtera/Sync/AstraTerraWorldBridge.cs) | Replace AstraTerra's catalogs on the sides that read them, and publish this world's light and tilt. |
 | Artwork | [`Client/CelestialTextureLibrary.cs`](../src/AstraExtera/Client/CelestialTextureLibrary.cs), [`Galaxy/CelestialFaceComposer.cs`](../src/AstraExtera/Galaxy/CelestialFaceComposer.cs), [`Client/BodyFacePainter.cs`](../src/AstraExtera/Client/BodyFacePainter.cs) | Load source faces, choose them deterministically, composite rings, and produce lit-disc inputs. |
 | Galactic glow | [`Galaxy/GalaxySkyView.cs`](../src/AstraExtera/Galaxy/GalaxySkyView.cs), [`Galaxy/SkyCubemap.cs`](../src/AstraExtera/Galaxy/SkyCubemap.cs), [`Client/GalaxyGlowRenderer.cs`](../src/AstraExtera/Client/GalaxyGlowRenderer.cs) | Integrate unresolved light, reproject it, and render a six-face sky cubemap. |
 | Inspection | [`Galaxy/GalaxyFacts.cs`](../src/AstraExtera/Galaxy/GalaxyFacts.cs), [`Client/GalaxyPanelDialog.cs`](../src/AstraExtera/Client/GalaxyPanelDialog.cs), [`Commands/GalaxyServerCommands.cs`](../src/AstraExtera/Commands/GalaxyServerCommands.cs) | Shared facts, diagrams, hotkey panel, and server commands. |
@@ -255,39 +260,59 @@ rewrites constellation ID meaning because the new star field is completely resam
 
 ## Catalog handoff to AstraTerra
 
-`AstraTerraSkyBridge.Publish` performs a full client-side replacement after the server packet
-arrives. The drawing catalogs are client-only; the light source and the world tilt go to both sides,
-through `AstraTerraWorldBridge`:
+Three bridges perform the handover, each on the sides that read what it publishes.
+`AstraTerraCatalogBridge` publishes what is in the sky and runs on both sides: on the server when the
+save loads and on each reroll, on a client when the packet arrives. `AstraTerraSkyBridge` adds the
+painted near bodies and is a client only. `AstraTerraWorldBridge` publishes the light and the tilt on
+both sides.
 
-| AstraTerra method | AstraExtera input |
-| --- | --- |
-| `ReplaceStarCatalog` | Brightness-ranked fixed stars; empty guide groups, sky cultures, and deep-sky objects. The first 58 stars are flagged as guide anchors. |
-| `ReplacePlanetCatalog` | Observer orbit and every generated companion planet. |
-| `ReplaceCometCatalog` | Generated apparition records. |
-| `ReplaceMeteorShowers` | Generated shower records. |
-| `ReplaceNearBodies` | Parent giant and siblings on a moon world, or home moons on a planet world; `HidesVanillaMoon` is always true. Client only — the entries carry painted faces. |
-| `SetNearBodyLightSource` | **Both sides.** The parent giant reduced to four numbers: globe diameter, hour angle, declination, albedo. `null` on a planet world. The server needs it because the light it computes is what decides night-time mob spawning. |
-| `SetWorldObliquity` | **Both sides.** The parent giant's obliquity, clamped, as the locked moon's own axial tilt. `null` on a planet world, leaving Earth's 23.44°. |
+| AstraTerra method | Side | AstraExtera input |
+| --- | --- | --- |
+| `ReplaceStarCatalog` | Both | Brightness-ranked fixed stars; empty guide groups, sky cultures, and deep-sky objects. The first 58 stars are flagged as guide anchors. `FoundSkyDisc.Install` gets the same catalog, which `ReplaceStarCatalog` does not reach. |
+| `ReplacePlanetCatalog` | Both | Observer orbit and every generated companion planet. |
+| `ReplaceCometCatalog` | Both | Generated apparition records. |
+| `ReplaceMeteorShowers` | Both | Generated shower records. |
+| `ReplaceNearBodies` | Client | Parent giant and siblings on a moon world, or home moons on a planet world; `HidesVanillaMoon` is always true. Client only because the entries carry painted faces. |
+| `SetNearBodyLightSource` | Both | The parent giant reduced to four numbers: globe diameter, hour angle, declination, albedo. `null` on a planet world. The server needs it because the light it computes is what decides night-time mob spawning. |
+| `SetWorldObliquity` | Both | The parent giant's obliquity, clamped, as the locked moon's own axial tilt. `null` on a planet world, leaving Earth's 23.44°. |
 
-The call is guarded by `publishedSeed`. A second packet carrying the same seed is ignored even if its
-other content differs. Normal rerolls use a new seed, so this is safe for the implemented path. Code
-that mutates a sky in place under the same seed has no supported refresh operation.
+The client call is guarded by `publishedSeed`, because painting near-body faces is expensive. A second
+packet carrying the same seed is ignored even if its other content differs. Normal rerolls use a new
+seed, so this is safe for the implemented path. Code that mutates a sky in place under the same seed
+has no supported refresh operation. The server publishes unguarded on save load and on each reroll;
+every call it makes is idempotent.
 
-The live star handoff constructs `StarCatalogEntry` records directly. `StarCatalogExport.ToJson` and
-`EmptyGuideGroupsJson` are tool/test helpers and do not write assets during play.
+`StarCatalogHandover` is the only place the stored field becomes a runtime `StarCatalog`, so both
+sides build the same numbered sky by construction. `GalaxySky.Author` quantizes the sampled field to
+its stored single precision before anything sees it, so a client's decoded field is bit-identical to
+the server's in-memory one. `StarCatalogExport.ToJson` and `EmptyGuideGroupsJson` are tool/test
+helpers and do not write assets during play.
 
-### Current server/client mismatch
+### Server-side catalog services
 
-AstraExtera calls the replacement methods only from its client bridge. AstraTerra also reads its star
-catalog on the server for constellation validation, prepared-book creation, and `/stars` services.
-Consequently, a server can retain AstraTerra's shipped Earth catalog while clients render the
-procedural catalog.
+AstraTerra reads its star catalog on the server as well as on its clients: to validate the
+constellation edges a player submits, to fill prepared books, and to answer `/stars` and the
+server-handled `.stars` journal commands. It resolves the catalog through a closure over its own
+field (`ConstellationBookServer(() => catalog)`, `StarsServerCommands(() => catalog, () => planets)`),
+so a replacement pushed at save-load time reaches every one of those services with no ordering
+constraint against AstraTerra's startup.
 
-This is an implementation discrepancy, not a supported split-brain contract. It can affect prepared
-Earth books, `.stars build`, server validation, and commands that resolve HIP IDs. Code that changes
-this must arrange a server-side AstraTerra replacement from the stored field without asking a client
-to author data. Until then, integrations should not treat those server services as authoritative for
-the procedural sky.
+`GalaxyServerSync` therefore publishes from the stored field, and server-side star IDs now resolve to
+the same stars a client draws. `/stars debug` reports the generated star count, and `.stars build Ori`
+refuses with "Authored constellation not found" rather than laying an Earth figure over unrelated
+stars, because the replacement carries no guide groups or sky cultures.
+
+Found sky discs are a second server-side catalog, and are handled too. `FoundSkyDisc` holds its own
+static catalog installed at asset time, and `ReplaceStarCatalog` does not reach it, so the bridge
+calls `FoundSkyDisc.Install` with the same replacement. A dug-up disc therefore comes up with a solar
+band and no engraved figure -- the documented behaviour for a sky whose cultures are empty -- instead
+of an Earth figure drawn between generated stars.
+
+One Earth-keyed remnant is outside AstraExtera's reach: AstraTerra registers its creative prepared
+books in `AssetsFinalize`, capturing the shipped catalog by value long before any world is known, so
+those stacks still hold Earth HIP IDs. Note also that catalog replacement remains last-writer-wins
+across mods, so another replacement mod loading after AstraExtera can still leave the two sides
+disagreeing.
 
 ## Rendering
 

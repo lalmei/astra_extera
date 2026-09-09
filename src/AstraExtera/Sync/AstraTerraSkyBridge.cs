@@ -2,26 +2,32 @@ using AstraExtera.Client;
 using AstraExtera.Config;
 using AstraExtera.Galaxy;
 using AstraTerra;
-using AstraTerra.Astronomy;
 using Vintagestory.API.Client;
 
 namespace AstraExtera.Sync;
 
 /// <summary>
-/// Hands this world's stored sky to AstraTerra: stars, companion planets, authored comet
-/// apparitions, and the meteor showers associated with those comets.
+/// Hands this world's stored sky to AstraTerra from a client: the catalogs of everything in it, and
+/// then the near bodies, which are the part that has to be painted.
+/// </summary>
+/// <remarks>
+/// <para>
+/// The catalogs themselves go through <see cref="AstraTerraCatalogBridge"/>, because the server
+/// publishes those too; what belongs here is the drawing. Near-body entries carry a composited face
+/// per body, so they need a client's asset and texture machinery. What that same giant does to the
+/// light, and the axis it locks this world to, go through <see cref="AstraTerraWorldBridge"/> on both
+/// sides, because they decide what spawns rather than what is drawn.
+/// </para>
 /// <para>
 /// AstraTerra loads its shipped Earth catalogs from assets before a client knows which world it is
-/// joining, so the swap can only happen once the server's galaxy packet has arrived. Earth's
-/// constellation figures, guide groups and deep-sky objects are all keyed to Earth's own star ids
-/// and sky positions, so none of them carry over; they are replaced with empty sets rather than
-/// pointed at unrelated stars. Earth's planets, comets and showers are replaced the same way.
+/// joining, so the swap can only happen once the server's galaxy packet has arrived.
 /// </para>
-/// </summary>
+/// </remarks>
 public sealed class AstraTerraSkyBridge
 {
     private readonly ICoreClientAPI api;
     private readonly CelestialTextureLibrary textures;
+    private readonly AstraTerraCatalogBridge catalogBridge;
     private readonly AstraTerraWorldBridge worldBridge;
     private long? publishedSeed;
 
@@ -29,6 +35,7 @@ public sealed class AstraTerraSkyBridge
     {
         this.api = api;
         textures = new CelestialTextureLibrary(api);
+        catalogBridge = new AstraTerraCatalogBridge(api);
         worldBridge = new AstraTerraWorldBridge(api, config);
     }
 
@@ -40,36 +47,18 @@ public sealed class AstraTerraSkyBridge
             return;
         }
 
+        if (!catalogBridge.Publish(sky))
+        {
+            return;
+        }
+
+        // The catalogs went out, so AstraTerra is here and its astronomy is on. Same lookup again,
+        // this time for the half of the sky that has to be painted before it can be handed over.
         var astraTerra = api.ModLoader.GetModSystem<AstraTerraModSystem>();
         if (astraTerra is null)
         {
-            api.Logger.Warning("AstraExtera found no AstraTerra mod system; the procedural sky was not published.");
             return;
         }
-
-        var catalog = new StarCatalog(
-            StarCatalogExport.BuildEntries(sky.Placement, sky.StarField)
-                .Select(entry => new StarCatalogEntry(
-                    entry.Hip,
-                    entry.RightAscensionDeg,
-                    entry.DeclinationDeg,
-                    entry.VisualMagnitude,
-                    entry.BvColorIndex,
-                    entry.IsGuideStar))
-                .ToList(),
-            guideGroups: [],
-            skyCultures: [],
-            deepSkyObjects: []);
-
-        if (!astraTerra.ReplaceStarCatalog(catalog))
-        {
-            api.Logger.Warning("AstraExtera could not publish the procedural sky: AstraTerra astronomy is disabled.");
-            return;
-        }
-
-        astraTerra.ReplacePlanetCatalog(LocalSystemSkyExport.ToPlanetCatalog(sky.LocalSky));
-        astraTerra.ReplaceCometCatalog(LocalSystemSkyExport.ToCometCatalog(sky.LocalSky));
-        astraTerra.ReplaceMeteorShowers(LocalSystemSkyExport.ToMeteorShowers(sky.LocalSky));
 
         // No world here gets Earth's moon. A moon world gets the giant it orbits, fixed in one spot
         // because it is tidally locked to it, and its sibling moons; a planet world gets the moons
@@ -85,16 +74,7 @@ public sealed class AstraTerraSkyBridge
 
         publishedSeed = sky.Placement.WorldSeed;
         api.Logger.Event(
-            "AstraExtera published the stored sky: stars={0}; nakedEyeStars={1:0}; planets={2}; comets={3}; showers={4}; nearBodies={9} (vanilla moon hidden={10}); pole={5:0.0}deg from the galactic pole; host={6} {7:0.00} Msun at {8:0.00} AU.",
-            catalog.Stars.Count,
-            sky.StarField.ExpectedVisibleCount,
-            sky.LocalSky.Planets.Count,
-            sky.LocalSky.Comets.Count,
-            sky.LocalSky.Showers.Count,
-            sky.Placement.Orientation.PoleTiltFromGalacticPoleDeg,
-            sky.Placement.System.StarClassLabel,
-            sky.Placement.System.StarMassSolar,
-            sky.Placement.System.OrbitalDistanceAu,
+            "AstraExtera published the stored sky's near bodies: nearBodies={0} (vanilla moon hidden={1}).",
             nearBodies.Bodies.Count,
             nearBodies.HidesVanillaMoon);
     }

@@ -17,19 +17,10 @@ public sealed class AstraTerraHandoverTests
     public void Exported_Stars_Fill_Every_Field_AstraTerra_Reads()
     {
         var placement = GalaxyGenerator.Generate(42);
-        var entries = StarCatalogExport.BuildEntries(placement, StarFieldSampler.Sample(placement));
+        var starField = StarFieldSampler.Sample(placement);
+        var entries = StarCatalogExport.BuildEntries(placement, starField);
 
-        var stars = entries
-            .Select(entry => new StarCatalogEntry(
-                entry.Hip,
-                entry.RightAscensionDeg,
-                entry.DeclinationDeg,
-                entry.VisualMagnitude,
-                entry.BvColorIndex,
-                entry.IsGuideStar))
-            .ToList();
-
-        var catalog = new StarCatalog(stars, [], [], []);
+        var catalog = StarCatalogHandover.ToCatalog(placement, starField);
 
         Assert.Equal(entries.Count, catalog.Stars.Count);
         Assert.Empty(catalog.GuideGroups);
@@ -55,21 +46,13 @@ public sealed class AstraTerraHandoverTests
     public void Exported_Stars_Project_Through_AstraTerras_Sky_Model()
     {
         var placement = GalaxyGenerator.Generate(42);
-        var entries = StarCatalogExport.BuildEntries(
+        var catalog = StarCatalogHandover.ToCatalog(
             placement,
             StarFieldSampler.Sample(placement, new StarFieldOptions { ResolvedStarBudget = 400 }));
 
         var projectedSomewhere = 0;
-        foreach (var entry in entries)
+        foreach (var star in catalog.Stars)
         {
-            var star = new StarCatalogEntry(
-                entry.Hip,
-                entry.RightAscensionDeg,
-                entry.DeclinationDeg,
-                entry.VisualMagnitude,
-                entry.BvColorIndex,
-                entry.IsGuideStar);
-
             for (var latitude = -60.0; latitude <= 60.0; latitude += 30.0)
             {
                 for (var sidereal = 0.0; sidereal < 360.0; sidereal += 45.0)
@@ -85,7 +68,7 @@ public sealed class AstraTerraHandoverTests
         next: ;
         }
 
-        Assert.Equal(entries.Count, projectedSomewhere);
+        Assert.Equal(catalog.Stars.Count, projectedSomewhere);
     }
 
     [Fact]

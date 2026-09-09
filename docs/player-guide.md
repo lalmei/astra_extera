@@ -91,6 +91,10 @@ fired clay does not. Metal accepts a figure at any time. A Sky Disc needs no boo
 
 Sneak-right-click a block to place the disc. Right click it with an empty hand to pick it up.
 
+A disc you dig up rather than make still records its maker's year and latitude, but it carries no
+engraved figure here. Its maker lived under this generated sky, and this sky has no inherited
+constellations for them to have copied.
+
 ## Constellations and books
 
 AstraExtera's generated catalog contains no inherited Earth constellations or sky culture. A
@@ -104,9 +108,10 @@ The fixed stars use numeric IDs assigned in brightness order. The server stores 
 so those IDs remain stable on normal reloads. An admin reroll deliberately replaces that catalog;
 old constellation lines then connect different stars.
 
-Do not rely on AstraTerra's Earth-template commands such as `.stars build Ori`, or on its prepared
-Earth catalog books, in an AstraExtera world. Their HIP star IDs describe AstraTerra's shipped Earth
-catalog, not the generated sky.
+AstraTerra's Earth-template commands such as `.stars build Ori` do not work in an AstraExtera world:
+the generated sky ships no named figures, so the command reports that the constellation was not
+found. Its prepared Earth catalog books are still worth avoiding for the same underlying reason --
+their HIP star IDs describe AstraTerra's shipped Earth catalog, not the generated sky.
 
 ## What moves, and why
 

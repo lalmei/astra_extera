@@ -7,6 +7,7 @@ namespace AstraExtera.Sync;
 public sealed class GalaxyServerSync
 {
     private readonly ICoreServerAPI api;
+    private readonly AstraTerraCatalogBridge catalogBridge;
     private readonly AstraTerraWorldBridge worldBridge;
     private IServerNetworkChannel? channel;
     private GalaxySky? sky;
@@ -14,6 +15,7 @@ public sealed class GalaxyServerSync
     public GalaxyServerSync(ICoreServerAPI api, AstraExteraConfig config)
     {
         this.api = api;
+        catalogBridge = new AstraTerraCatalogBridge(api);
         worldBridge = new AstraTerraWorldBridge(api, config);
     }
 
@@ -39,7 +41,7 @@ public sealed class GalaxyServerSync
         var packet = ToPacket(replacement);
         Store(packet);
         sky = replacement;
-        worldBridge.Publish(replacement.Placement);
+        Publish(replacement);
         channel.BroadcastPacket(packet);
         api.Logger.Event("AstraExtera rerolled cosmology: seed {0} -> {1}.", previousSeed, nextSeed);
         api.Logger.Event(GalaxyPlacementCodec.Describe(replacement));
@@ -64,12 +66,25 @@ public sealed class GalaxyServerSync
     {
         sky = LoadOrGenerate();
         api.Logger.Event(GalaxyPlacementCodec.Describe(sky));
+        Publish(sky);
+    }
 
-        // The drawing catalog is the client's business and is published there. This is not: what
-        // lights the ground is what decides whether things spawn on it, and how far the world is
-        // tipped is what decides how long its days are, so a server that did not know either would
-        // be running different rules from the world its players are looking at.
-        worldBridge.Publish(sky.Placement);
+    /// <summary>
+    /// Tells this server's own AstraTerra what sky this save has.
+    /// </summary>
+    /// <remarks>
+    /// The painted near bodies are the client's business and are published there. These are not.
+    /// AstraTerra reads its star catalog on the server to validate the constellations players
+    /// submit, to fill prepared books, and to answer <c>/stars</c>, so a server still holding Earth's
+    /// shipped catalog would be checking figures against a sky nobody can see. And what lights the
+    /// ground is what decides whether things spawn on it, while how far the world is tipped is what
+    /// decides how long its days are, so a server that knew neither would be running different rules
+    /// from the world its players are looking at.
+    /// </remarks>
+    private void Publish(GalaxySky published)
+    {
+        catalogBridge.Publish(published);
+        worldBridge.Publish(published.Placement);
     }
 
     private void OnPlayerJoin(IServerPlayer player)
