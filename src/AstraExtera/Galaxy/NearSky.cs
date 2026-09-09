@@ -88,6 +88,18 @@ public sealed record NearBody(
 /// player is standing; what is authored here is the hour angle at the prime meridian.
 /// </para>
 /// <para>
+/// It hangs on the world's own equator, and that is not a decoration. A habitable moon here is a
+/// regular satellite: it formed in the disc that became its giant's rings, it orbits in the giant's
+/// equatorial plane, and being locked to the giant its spin axis is that orbit's normal -- so the
+/// moon's celestial equator is the giant's equatorial plane and the giant sits on it, up to the
+/// orbit's own fraction of a degree. The same geometry read twice over: it is why the rings are seen
+/// edge-on from here, and it is why the sun, which crosses every hour angle once a day, passes
+/// behind the giant whenever its seasonal declination is near zero. That is an eclipse season, and
+/// how often one comes round is the world's axial tilt -- which is the giant's, for the same reason
+/// everything else here is. A moon of an upright giant is eclipsed nearly every day, as Io is by
+/// Jupiter; a moon of a tipped one gets two seasons a year, as Titan does. Neither is authored.
+/// </para>
+/// <para>
 /// Sibling moons drift past it at the rate the two orbits beat against each other -- an inner one
 /// laps the observer, an outer one falls behind -- but only the outer ones go right round the sky.
 /// A sibling closer in than the observer is bound to the giant the way Venus is bound to the sun:
@@ -118,23 +130,17 @@ public static class NearSky
 
     /// <summary>
     /// How far off the meridian the giant hangs, for an observer at the world's prime meridian.
-    /// Straight overhead would put it on the sun's noon track and eclipse the sun every single day,
-    /// which says more about the model than about the world, so the orbit is authored with a tilt
-    /// and the giant sits off to one side.
     /// </summary>
     /// <remarks>
     /// This is a choice about where the prime meridian falls, not a property every observer gets: a
-    /// player far enough east or west stands under a giant nearer their own meridian. The
-    /// declination below is what actually keeps it off the sun's track, and it does so everywhere.
-    /// A model that wanted real eclipse seasons would put the giant on the moon's equator, where a
-    /// locked regular satellite really sees it, and let the sun's own seasonal declination decide
-    /// when the two meet -- which is a change to the world's daylight rather than to this geometry.
+    /// player far enough east or west stands under a giant nearer their own meridian. It does not
+    /// decide whether the giant ever eclipses the sun -- on a locked world the sun sweeps every
+    /// hour angle once a day, so it passes this one whatever it is. What the band decides is the
+    /// local solar hour an eclipse falls at, which on these numbers is an hour and a half to four
+    /// hours past noon: an afternoon, where a player is out in it.
     /// </remarks>
     public const double MinParentHourAngleDeg = 22.0;
     public const double MaxParentHourAngleDeg = 58.0;
-
-    public const double MinParentDeclinationDeg = 8.0;
-    public const double MaxParentDeclinationDeg = 26.0;
 
     /// <summary>
     /// How far the world's orbit is tilted from its giant's equator, which is also its ring plane.
@@ -173,7 +179,14 @@ public static class NearSky
         var inclination = rng.NextRange(MinOrbitInclinationDeg, MaxOrbitInclinationDeg);
         var ringOuter = system.ParentGiantAppearance?.Ring?.OuterRadiusPlanetRadii ?? 1.0;
         var hourAngle = SignedSpread(ref rng, MinParentHourAngleDeg, MaxParentHourAngleDeg);
-        var declination = SignedSpread(ref rng, MinParentDeclinationDeg, MaxParentDeclinationDeg);
+
+        // On the world's own equator, up to the orbit's own tilt. A habitable moon is a regular
+        // satellite: it orbits in its giant's equatorial plane, and being locked to the giant its
+        // spin axis is that orbit's normal -- so the moon's celestial equator is the giant's
+        // equatorial plane, and the giant sits on it. This is the same inclination that keeps the
+        // rings edge-on ten lines below, and it is what lets the sun's own seasonal declination
+        // decide when the two meet.
+        var declination = rng.NextRange(-inclination, inclination);
 
         var bodies = new List<NearBody>(system.Moons.Length + 1)
         {

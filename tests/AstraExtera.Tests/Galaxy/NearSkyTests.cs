@@ -163,10 +163,12 @@ public sealed class NearSkyTests
         var giant = Assert.Single(bodies, static body => body.Role == NearBodyRole.ParentGiant);
         Assert.Equal(0.0, giant.HourAngleRateDegPerDay);
         Assert.InRange(Math.Abs(giant.HourAngleDeg), NearSky.MinParentHourAngleDeg, NearSky.MaxParentHourAngleDeg);
-        Assert.InRange(
-            Math.Abs(giant.DeclinationDeg),
-            NearSky.MinParentDeclinationDeg,
-            NearSky.MaxParentDeclinationDeg);
+
+        // On the world's own celestial equator, to within the orbit's own inclination. A locked
+        // regular satellite orbits in its giant's equatorial plane and its spin axis is that
+        // orbit's normal, so this is where the giant genuinely is -- and it is what puts the sun
+        // behind it twice a year rather than never.
+        Assert.InRange(Math.Abs(giant.DeclinationDeg), 0.0, NearSky.MaxOrbitInclinationDeg);
 
         // A giant a few dozen planet radii away is tens of degrees wide -- the whole reason it needs
         // a disc rather than a dot.
