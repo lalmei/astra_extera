@@ -120,7 +120,7 @@ are coordinates on an imaginary **celestial sphere** surrounding the observer.
 - **Latitude** is the observer's north-south position. It changes which celestial pole is above the
   horizon and which stars can rise.
 - **Longitude** is the observer's east-west position. It changes the local hour when AstraTerra's
-  longitude-aware sun is enabled.
+  longitude-aware sun is enabled, and moves the near bodies fixed to the ground beneath it.
 
 AstraTerra combines right ascension and declination with latitude and the current local sidereal
 angle to obtain altitude and azimuth. **Sidereal motion** is the daily turning of the star field as
@@ -149,11 +149,17 @@ On a **planet world**, the generator provides zero to three moons. Each travels 
 rate derived from its generated month. A slow moon rises later on successive days; a moon with a
 month shorter than the day can move the other way across the sky. A moonless night is a valid result.
 
-On a **moon world**, the playable world is tidally locked to a gas giant. The parent therefore stays
-at one hour angle instead of rising and setting. It changes phase with the sun. Its rings appear
-almost edge-on because the home moon and rings share the giant's equatorial plane. Sibling moons can
-cross in front of the giant, pass behind it, or travel around the sky according to their relative
-orbits.
+On a **moon world**, the playable world is tidally locked to a gas giant. The parent therefore hangs
+over one patch of ground instead of rising and setting: stand still and it never moves, whatever the
+hour or the season. It changes phase with the sun. Its rings appear almost edge-on because the home
+moon and rings share the giant's equatorial plane. Sibling moons can cross in front of the giant,
+pass behind it, or travel around the sky according to their relative orbits.
+
+Travelling east or west is the one thing that does move it, and only when `LongitudeAwareSun` is
+enabled. The giant is fixed to the ground, not to your sky, so walking east carries your horizon past
+it and it sinks westward at the same rate the sun does. Far enough around the world it sets and does
+not come back: the far side of a tidally locked moon never sees the planet it orbits. The sibling
+moons keep their positions relative to the giant throughout, because they are placed against it.
 
 The generated near-body motion is a game model. Planet-world moons use circular paths at fixed
 declination. The moon-world system uses circular, nearly coplanar satellite geometry, and the parent
@@ -243,7 +249,9 @@ constellation shapes and star names will point elsewhere.
 | The galaxy panel says it is waiting for the server | The client has not received or decoded the saved-sky packet. Check that the server loaded AstraExtera and that both sides use compatible mod versions. |
 | Two galactic bands overlap | AstraTerra's Earth Milky Way and AstraExtera's generated glow are separate passes. Set AstraTerra `MilkyWayBrightness` to `0.0` and restart the client. |
 | `.stars starfield vanilla` still leaves a band or nearby moon | The command controls AstraTerra's star pass. AstraExtera's glow and near bodies are separate renderers/catalogs. There is no complete AstraExtera visual toggle. |
-| A fixed giant never rises or sets | The playable world is a tidally locked moon. The fixed parent is intentional. |
+| A fixed giant never rises or sets | The playable world is a tidally locked moon. The fixed parent is intentional. It moves only when you travel east or west. |
+| The giant is gone and will not come back | You have travelled to the far side of the moon. Its giant is below that horizon permanently; travel back west or east to recover it. |
+| A generated moon vanishes in daylight | Dark moons are lost against a lit sky, the way real ones are. Bright icy moons stay visible; wait for dusk for the rest. |
 | There is no moon | A planet world can be generated without one. The ordinary Vintage Story moon is still hidden. |
 | Moonlight or the calendar phase disagrees with the visible moons | Vintage Story still controls moonlight and calendar phase; AstraExtera replaces only the visible disc and nearby bodies. |
 | A companion planet remains a point in the telescope | AstraExtera exports orbital and photometric data but no telescope disc or moon artwork for generated companion planets. |

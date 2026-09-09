@@ -13,6 +13,11 @@ namespace AstraExtera.Sync;
 /// not Earth. A moon world has no moon of its own; a planet world has the moons the generator gave
 /// it, which are not that one, and some worlds have none at all. Only the drawing stops: moonlight,
 /// the phase the calendar reports, and the length of the day are Vintage Story's own.
+/// <para>
+/// The hour angles handed over are measured at the world's prime meridian. AstraTerra adds the
+/// observer's longitude when it places them, which is what carries a ground-fixed giant westward as
+/// a player travels east and takes it below the horizon on the far side of a locked moon.
+/// </para>
 /// </remarks>
 public static class NearBodyExport
 {
