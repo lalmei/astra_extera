@@ -233,9 +233,38 @@ an orbital intersection.
 
 ## Configuration
 
-AstraExtera has no configuration file in the current release. Its catalog size, limiting magnitude,
-galaxy models, and local-system distributions are implementation constants. Server admins can select
-another generated result only by rerolling the cosmology.
+AstraExtera writes `ModConfig/astraextera.json` on first run. Its catalog size, limiting magnitude,
+galaxy models, and local-system distributions remain implementation constants, but a server owner can
+narrow what the generator is allowed to produce, and decide how much of a generated world reaches the
+game rules.
+
+| AstraExtera key | Default | Effect | When it applies |
+| --- | --- | --- | --- |
+| `WorldKind` | `any` | `any`, `planet`, or `moon`. Chooses whether players live on a planet or on a moon locked to a gas giant. | New saves and `/astraextera reroll`. |
+| `StarClass` | `any` | `any`, `M`, `K`, `G`, or `F`. The host star's spectral class. `M` implies a moon world: an M dwarf's habitable zone would tidally lock a planet. | New saves and `/astraextera reroll`. |
+| `GalaxyMorphology` | `any` | `any`, `spiral`, or `elliptical`. Ellipticals are generated about one world in forty, so this is the only practical way to get one. | New saves and `/astraextera reroll`. |
+| `ParentGiantRings` | `any` | `any`, `required`, or `none`. Rings on the giant that dominates the sky: the parent a moon world orbits, or a planet world's shepherd giant. | New saves and `/astraextera reroll`. |
+| `HomeMoons` | `any` | `any`, `required`, or `none`. Whether a planet world has moons of its own. Planet worlds only; a moon world's family belongs to its giant. | New saves and `/astraextera reroll`. |
+| `PublishNearBodyLight` | `true` | Whether the parent giant lights the ground: planetshine at night, and eclipses when it crosses the sun. | Restart. |
+| `PublishWorldObliquity` | `true` | Whether a generated moon world's tilt is handed to AstraTerra at all. Off leaves every world on Earth's 23.4 degrees. | Restart. |
+| `MaxMoonWorldObliquityDeg` | `45.0` | Caps how far a moon world inherits its giant's tilt. Past about forty degrees the world gets polar night at a temperature that thinks it is autumn, because Vintage Story's seasonal curve follows the calendar rather than the sun. | Restart. |
+
+The five generation settings are constraints on the generator, not values written into the result.
+The generator keeps drawing until it finds a world that satisfies them *and* passes every physical
+check it already made -- habitable zone, Roche limit, Hill separation, star lifespan, shortest
+non-locking year -- so a constrained world is as real as an unconstrained one. Every default is
+`any`, which reproduces the generator exactly: the same seed gives the same sky it gave before these
+settings existed.
+
+Two combinations contradict each other and are ignored with a warning in the server log rather than
+stalling the world: `WorldKind: moon` with `HomeMoons: required`, and `WorldKind: planet` with
+`StarClass: M`.
+
+Constraints apply when a save's sky is first authored and when an admin runs
+`/astraextera reroll`. They never touch a save that already has a sky, so changing the config cannot
+invalidate constellation drawings and star names on a world people are already playing.
+`/astraextera galaxy` ends with `constraints=`, naming what the current sky was authored under, or
+`none`.
 
 The visible sky and observing rules come from AstraTerra's `ModConfig/astraterra.json`. The following
 settings matter most with AstraExtera:

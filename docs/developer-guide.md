@@ -399,9 +399,37 @@ limitations apply.
 
 ## Configuration
 
-AstraExtera has no config class or mod configuration file. `StarFieldOptions` contains authoring
-defaults for tools and tests, but no runtime loader exposes them to players or servers. The texture
-manifest is an asset index, not player configuration.
+`AstraExteraConfig` is loaded by `AstraExteraConfigLoader` from `ModConfig/astraextera.json`, which
+is written with defaults on first run. It holds two kinds of setting: what a generated world hands to
+AstraTerra (`PublishNearBodyLight`, `PublishWorldObliquity`, `MaxMoonWorldObliquityDeg`), and what the
+generator is allowed to produce (`WorldKind`, `StarClass`, `GalaxyMorphology`, `ParentGiantRings`,
+`HomeMoons`). `StarFieldOptions` still contains authoring defaults for tools and tests and is not
+exposed. The texture manifest is an asset index, not player configuration.
+
+The generation settings become a `GalaxyConstraints` via `AstraExteraConfig.GetGalaxyConstraints`,
+which widens anything unreadable back to `any` and names it for the loader to warn about. The
+generator takes that record rather than the config, so it stays pure and testable.
+
+Constraints narrow a choice the sampler was about to make rather than rejecting a finished draw:
+`GalaxyGenerator.Draw` forces the morphology branch and `GalaxyConstraints.ResolveWorldKind` the
+world kind, `LocalSystem.TrySample` narrows the host-class array through `GalaxyConstraints.Narrow`,
+and `GiantAppearances.SampleRing` and `LocalSystem.PlaceHomeMoons` override their own coin. Each of
+those still takes the draw it would have taken, so forcing one thing does not shift everything
+downstream of it, and every physical check runs unchanged. A satisfiable request therefore lands on
+the first placement; `LocalSystem.MaxConstrainedAttempts` and
+`GalaxyGenerator.MaxConstrainedAttempts` are the budgets for the cases that do not.
+
+`GalaxyConstraints.Reconcile` widens away the two contradictory combinations -- a moon world asked
+for moons of its own, and a planet world asked for an M dwarf that `LocalSystem.PlanetHostClasses`
+excludes -- and returns the warnings for the caller to log. It is what makes every config-expressible
+set satisfiable; `GalaxyGenerator`'s give-up path, which authors an unconstrained world and reports
+it through `GalaxyConstraintOutcome`, is the backstop behind it.
+
+`GalaxyPlacement.AuthoredUnder` records what a sky was authored under, and is null when nothing was
+asked for. It is an optional record parameter suppressed from JSON when null rather than a schema
+bump, so an existing save's stored payload is unchanged and its sky is not regenerated to record a
+field that would be null for it. `GalaxySkyStore.Resolve` consults the constraints only when it is
+authoring; a stored placement is returned untouched.
 
 Rendering, coordinates, clock display, and instrument settings belong to AstraTerra. In particular:
 
