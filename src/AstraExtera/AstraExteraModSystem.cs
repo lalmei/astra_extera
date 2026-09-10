@@ -26,10 +26,11 @@ public sealed class AstraExteraModSystem : ModSystem
     {
         config = AstraExteraConfigLoader.Load(api);
         api.Logger.Event(
-            "AstraExtera startup step: config loaded: publishNearBodyLight={0}; publishWorldObliquity={1}; maxMoonWorldObliquity={2:0.0}deg",
+            "AstraExtera startup step: config loaded: publishNearBodyLight={0}; publishWorldObliquity={1}; maxMoonWorldObliquity={2:0.0}deg; constraints={3}",
             config.PublishNearBodyLight,
             config.PublishWorldObliquity,
-            config.GetMaxMoonWorldObliquityDeg());
+            config.GetMaxMoonWorldObliquityDeg(),
+            config.GetGalaxyConstraints().Describe());
     }
 
     public override void StartServerSide(ICoreServerAPI api)

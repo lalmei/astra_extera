@@ -150,6 +150,48 @@ public sealed class GalaxyServerCommandsTests
     }
 
     [Fact]
+    public void A_Configured_Server_Authors_And_Rerolls_Under_Its_Constraints_And_Says_So()
+    {
+        var config = new AstraExteraConfig { WorldKind = "moon", StarClass = "M", ParentGiantRings = "required" };
+        var expected = config.GetGalaxyConstraints();
+        using var server = new TestServer(config: config);
+
+        var authored = server.Sync.Placement!;
+        Assert.Equal(ObserverWorldKind.TerrestrialMoon, authored.WorldKind);
+        Assert.Equal(StarSpectralClass.M, authored.System.StarClass);
+        Assert.NotNull(authored.System.ParentGiantAppearance!.Ring);
+        Assert.Equal(expected, authored.AuthoredUnder);
+        Assert.Contains(
+            "constraints=kind=moon,star=M,rings=required",
+            server.Execute("astraextera galaxy").StatusMessage);
+
+        Assert.Equal(EnumCommandStatus.Success, server.Execute("astraextera reroll -1234").Status);
+
+        var rerolled = server.Sync.Placement!;
+        Assert.Equal(GalaxyGenerator.Generate(-1234, expected), rerolled);
+        Assert.Equal(ObserverWorldKind.TerrestrialMoon, rerolled.WorldKind);
+        Assert.Equal(StarSpectralClass.M, rerolled.System.StarClass);
+        Assert.NotNull(rerolled.System.ParentGiantAppearance!.Ring);
+
+        // The sky a save is holding is the sky it keeps: a restart under a changed config reloads
+        // the stored placement rather than authoring the world someone has since asked for.
+        using var restarted = new TestServer(server.Stored, config: new AstraExteraConfig { WorldKind = "planet" });
+        Assert.Equal(0, restarted.LoadWrites);
+        Assert.Equal(rerolled, restarted.Sync.Placement);
+    }
+
+    [Fact]
+    public void An_Unconfigured_Server_Authors_Exactly_What_It_Always_Did()
+    {
+        using var server = new TestServer();
+
+        Assert.Equal(GalaxyGenerator.Generate(7), server.Sync.Placement);
+        Assert.Null(server.Sync.Placement!.AuthoredUnder);
+        Assert.True(server.Sync.Constraints.IsUnconstrained);
+        Assert.Contains("constraints=none", server.Execute("astraextera galaxy").StatusMessage);
+    }
+
+    [Fact]
     public void Rerolling_Before_The_Save_Loads_Is_Rejected()
     {
         using var server = new TestServer(load: false);
@@ -173,7 +215,10 @@ public sealed class GalaxyServerCommandsTests
         private readonly ChatCommandApi commands;
         private readonly Dictionary<string, Delegate?> events = [];
 
-        public TestServer(Dictionary<string, byte[]>? stored = null, bool load = true)
+        public TestServer(
+            Dictionary<string, byte[]>? stored = null,
+            bool load = true,
+            AstraExteraConfig? config = null)
         {
             Stored = stored ?? [];
             var save = ApiDouble.Create<ISaveGame>((method, args) => method.Name switch
@@ -246,7 +291,7 @@ public sealed class GalaxyServerCommandsTests
                 _ => throw new NotSupportedException(method.Name)
             });
             commands = new ChatCommandApi(api);
-            Sync = new GalaxyServerSync(api, new AstraExteraConfig());
+            Sync = new GalaxyServerSync(api, config ?? new AstraExteraConfig());
             Sync.Register();
             new GalaxyServerCommands(() => Sync.Sky, Sync.Reroll).Register(api);
             if (load) events["SaveGameLoaded"]!.DynamicInvoke();

@@ -89,6 +89,13 @@ public sealed record LocalSystem(
 
     public const int MaxAttempts = 64;
 
+    /// <summary>
+    /// Draws allowed when a constraint has narrowed the candidate set. Asking for an M-type host on
+    /// a moon world throws away three quarters of the star draws before any physical check runs, so
+    /// the unconstrained budget would run out on requests that are perfectly satisfiable.
+    /// </summary>
+    public const int MaxConstrainedAttempts = 512;
+
     public string StarClassLabel => StarClass switch
     {
         StarSpectralClass.M => "M-type",
@@ -181,12 +188,26 @@ public sealed record LocalSystem(
         ObserverWorldKind kind,
         EarthAnalogWorld bulk,
         out EarthAnalogWorld world)
+        => Sample(ref rng, kind, bulk, null, out world);
+
+    public static LocalSystem Sample(
+        ref SplitMix64 rng,
+        ObserverWorldKind kind,
+        EarthAnalogWorld bulk,
+        GalaxyConstraints? constraints,
+        out EarthAnalogWorld world)
     {
         ArgumentNullException.ThrowIfNull(bulk);
 
-        for (var attempt = 0; attempt < MaxAttempts; attempt++)
+        var narrowed = GalaxyConstraints.OrUnconstrained(constraints);
+
+        // Constraints are not free. Narrowing the candidate set means more of the sampler's draws
+        // are thrown away, so a constrained request is given room to keep drawing rather than
+        // falling through to a system nobody asked for.
+        var budget = narrowed.IsUnconstrained ? MaxAttempts : MaxConstrainedAttempts;
+        for (var attempt = 0; attempt < budget; attempt++)
         {
-            if (TrySample(ref rng, kind, bulk, out var system, out world))
+            if (TrySample(ref rng, kind, bulk, narrowed, out var system, out world))
             {
                 return system;
             }
@@ -354,6 +375,7 @@ public sealed record LocalSystem(
         ref SplitMix64 rng,
         ObserverWorldKind kind,
         EarthAnalogWorld bulk,
+        GalaxyConstraints constraints,
         out LocalSystem system,
         out EarthAnalogWorld world)
     {
@@ -361,7 +383,15 @@ public sealed record LocalSystem(
         world = bulk;
 
         var asMoon = kind == ObserverWorldKind.TerrestrialMoon;
-        var hosts = asMoon ? MoonHostClasses : PlanetHostClasses;
+
+        // Narrowing the candidate list rather than rejecting afterwards: every class left in it
+        // still goes through the lifespan, habitable-zone and year-length checks below.
+        var hosts = constraints.Narrow(HostClassesFor(kind));
+        if (hosts.Length == 0)
+        {
+            return false;
+        }
+
         var starClass = hosts[rng.NextInt(hosts.Length)];
         var (minMass, maxMass) = MassRange(starClass);
         var starMass = rng.NextRange(minMass, maxMass);
@@ -413,10 +443,18 @@ public sealed record LocalSystem(
         GiantAppearance? giantAppearance = null;
         SystemMoon[] homeMoons = [];
 
+        // The giant that dominates this world's sky: its parent, if it is a moon, and otherwise the
+        // shepherd giant past the snow line. That is the one the ring constraint is about.
+        var rings = constraints.ParentGiantRings;
+
         if (asMoon)
         {
             giantMass = rng.NextRange(100.0, 300.0);
-            giantAppearance = GiantAppearances.Sample(ref rng, CompanionRole.ShepherdGiant, giantMass.Value);
+            giantAppearance = GiantAppearances.Sample(
+                ref rng,
+                CompanionRole.ShepherdGiant,
+                giantMass.Value,
+                rings);
             moons = PlaceMoonFamily(ref rng, starMass, orbitalAu, giantMass.Value, bulk);
             var home = moons.First(static moon => moon.Habitable);
             habitableMoonIndex = home.Index;
@@ -433,7 +471,14 @@ public sealed record LocalSystem(
 
         if (!asMoon)
         {
-            homeMoons = PlaceHomeMoons(ref rng, starMass, orbitalAu, bulk);
+            homeMoons = PlaceHomeMoons(ref rng, starMass, orbitalAu, bulk, constraints.HomeMoons);
+
+            // Forcing the count is not enough: an orbit has to fit outside the Roche limit and
+            // inside the Hill sphere, and on a close-in world around a heavy star it may not.
+            if (constraints.HomeMoons == PresenceConstraint.Required && homeMoons.Length == 0)
+            {
+                return false;
+            }
         }
 
         var habitableMass = asMoon ? giantMass ?? bulk.MassEarth : bulk.MassEarth;
@@ -445,7 +490,8 @@ public sealed record LocalSystem(
             innerHz,
             outerHz,
             orbitalAu,
-            habitableMass);
+            habitableMass,
+            asMoon ? PresenceConstraint.Any : rings);
 
         system = new LocalSystem(
             starClass,
@@ -473,20 +519,29 @@ public sealed record LocalSystem(
         return EarthAnalog.IsEarthlike(world);
     }
 
-    private static readonly StarSpectralClass[] PlanetHostClasses =
+    /// <summary>
+    /// Hosts a planet world may be given. M dwarfs are missing on purpose: their habitable zone sits
+    /// close enough in that a planet there locks to the star, which <see cref="MinPlanetYearDays"/>
+    /// rejects anyway. A moon keeps its day from its giant, so it can live under one.
+    /// </summary>
+    internal static readonly StarSpectralClass[] PlanetHostClasses =
     [
         StarSpectralClass.K,
         StarSpectralClass.G,
         StarSpectralClass.F
     ];
 
-    private static readonly StarSpectralClass[] MoonHostClasses =
+    internal static readonly StarSpectralClass[] MoonHostClasses =
     [
         StarSpectralClass.M,
         StarSpectralClass.K,
         StarSpectralClass.G,
         StarSpectralClass.F
     ];
+
+    /// <summary>The classes a world of this kind can be given, before any constraint narrows them.</summary>
+    internal static StarSpectralClass[] HostClassesFor(ObserverWorldKind kind)
+        => kind == ObserverWorldKind.TerrestrialMoon ? MoonHostClasses : PlanetHostClasses;
 
     private static double PickOrbitalDistance(ref SplitMix64 rng, double innerHz, double outerHz)
     {
@@ -658,7 +713,8 @@ public sealed record LocalSystem(
         ref SplitMix64 rng,
         double starMassSolar,
         double worldAu,
-        EarthAnalogWorld world)
+        EarthAnalogWorld world,
+        PresenceConstraint required = PresenceConstraint.Any)
     {
         var count = rng.NextUnit() switch
         {
@@ -666,6 +722,15 @@ public sealed record LocalSystem(
             < 0.68 => 1,
             < 0.92 => 2,
             _ => 3
+        };
+
+        // The roll still decides how many, so a world asked for moons gets the family it would have
+        // had; the constraint only rules out the empty draw, or forces it.
+        count = required switch
+        {
+            PresenceConstraint.None => 0,
+            PresenceConstraint.Required => Math.Max(1, count),
+            _ => count
         };
 
         if (count == 0)
@@ -745,7 +810,8 @@ public sealed record LocalSystem(
         double innerHz,
         double outerHz,
         double habitableAu,
-        double habitableMassEarth)
+        double habitableMassEarth,
+        PresenceConstraint shepherdRings)
     {
         var placed = new List<CompanionPlanet>(7);
 
@@ -777,7 +843,7 @@ public sealed record LocalSystem(
         }
 
         var shepherd = PlaceShepherd(ref rng, starMassSolar, snowLineAu, outerHz, habitableAu, habitableMassEarth);
-        placed.Add(WithGiantDetail(ref rng, shepherd, starMassSolar));
+        placed.Add(WithGiantDetail(ref rng, shepherd, starMassSolar, shepherdRings));
 
         var outermost = shepherd;
         if (rng.NextBool(0.45))
@@ -843,14 +909,15 @@ public sealed record LocalSystem(
     private static CompanionPlanet WithGiantDetail(
         ref SplitMix64 rng,
         CompanionPlanet giant,
-        double starMassSolar)
+        double starMassSolar,
+        PresenceConstraint rings = PresenceConstraint.Any)
     {
         if (!giant.IsGiant)
         {
             return giant;
         }
 
-        var appearance = GiantAppearances.Sample(ref rng, giant.Role, giant.MassEarth);
+        var appearance = GiantAppearances.Sample(ref rng, giant.Role, giant.MassEarth, rings);
         var moons = PlaceGiantMoons(ref rng, starMassSolar, giant, appearance);
         return giant with { Appearance = appearance, Moons = moons };
     }
