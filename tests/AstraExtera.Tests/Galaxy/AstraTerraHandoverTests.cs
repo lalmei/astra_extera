@@ -163,6 +163,59 @@ public sealed class AstraTerraHandoverTests
         Assert.Equal(atHome.AltitudeDeg, sixHoursOn.AltitudeDeg, 9);
     }
 
+    /// <summary>
+    /// The other half of the seam: a generated home moon, handed over as AstraTerra places it, actually
+    /// works its way up and down its band over its own month instead of running one line every night.
+    /// Authoring the track is no use if the numbers do not survive the handover -- an inclination that
+    /// arrived as a declination would give a moon stuck at one height for the life of the world.
+    /// </summary>
+    [Fact]
+    public void A_Home_Moon_Works_Its_Way_Up_And_Down_Its_Band_Over_A_Month()
+    {
+        var placement = PlanetWorldWithAMoon();
+        var moon = NearSky.Author(placement).First(static body => body.Role == NearBodyRole.HomeMoon);
+        var entry = Entry(moon);
+        var month = 360.0 / moon.Track!.ArgumentRateDegPerDay;
+
+        var declinations = new List<double>();
+        for (var day = 0.0; day <= month; day += month / 200.0)
+        {
+            declinations.Add(NearBodyRenderModel.DeclinationDeg(entry, day));
+        }
+
+        // It reaches its inclination both ways and crosses the equator between, which is a band rather
+        // than a line, and it is back where it started a month on.
+        Assert.Equal(moon.Track.InclinationDeg, declinations.Max(), 1);
+        Assert.Equal(-moon.Track.InclinationDeg, declinations.Min(), 1);
+        Assert.Contains(declinations, static declination => Math.Abs(declination) < 1.0);
+        Assert.Equal(
+            NearBodyRenderModel.DeclinationDeg(entry, 0.0),
+            NearBodyRenderModel.DeclinationDeg(entry, month),
+            6);
+
+        // And it keeps station with the stars rather than the ground: unlike the locked world's giant,
+        // its right ascension is the same for every observer at a given moment.
+        Assert.Equal(
+            NearBodyRenderModel.RightAscensionDeg(entry, 3.0, localSiderealDeg: 0.0),
+            NearBodyRenderModel.RightAscensionDeg(entry, 3.0, localSiderealDeg: 120.0, observerLongitudeDeg: 120.0),
+            9);
+    }
+
+    private static GalaxyPlacement PlanetWorldWithAMoon()
+    {
+        for (var seed = 1L; seed < 400L; seed++)
+        {
+            var placement = GalaxyGenerator.Generate(seed);
+            if (placement.WorldKind == ObserverWorldKind.TerrestrialPlanet
+                && NearSky.Author(placement).Any(static body => body.Role == NearBodyRole.HomeMoon))
+            {
+                return placement;
+            }
+        }
+
+        throw new InvalidOperationException("No planet world with a drawn moon was generated.");
+    }
+
     private static GalaxyPlacement MoonWorld()
     {
         for (var seed = 1L; seed < 400L; seed++)
@@ -189,5 +242,7 @@ public sealed class AstraTerraHandoverTests
             body.HourAngleRateDegPerDay,
             body.DeclinationDeg,
             body.Brightness,
-            new NearBodyFace(1, [unchecked((int)0xFFFFFFFF)], body.DiscFraction));
+            new NearBodyFace(1, [unchecked((int)0xFFFFFFFF)], body.DiscFraction),
+            Orbit: null,
+            Track: body.Track is { } track ? NearSky.ToAstraTerraTrack(track) : null);
 }

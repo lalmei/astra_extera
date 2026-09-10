@@ -35,9 +35,10 @@ public sealed class NearSkyTests
                 seenMoons++;
                 var moon = moons[body.SourceIndex];
 
-                // A moon of the observer's own world circulates, so a flat rate places it: there is
-                // no parent to be penned in beside the way a sibling moon is.
+                // A moon of the observer's own world goes round the observer, on its own tilted
+                // circle. There is no parent to be penned in beside the way a sibling moon is.
                 Assert.Null(body.Orbit);
+                Assert.NotNull(body.Track);
                 Assert.Equal(1.0, body.DiscFraction);
                 Assert.Equal(0.0, body.RingOpenness);
                 Assert.Equal(
@@ -45,11 +46,31 @@ public sealed class NearSkyTests
                     body.AngularDiameterDeg,
                     9);
                 Assert.InRange(body.AngularDiameterDeg, NearSky.MinAngularDiameterDeg, 10.0);
-                Assert.InRange(body.HourAngleDeg, 0.0, 360.0);
+
+                var track = body.Track!;
+
+                // The tilt is the world's own axis, leaned on by the moon's own orbit and capped at
+                // the top of the band Earth's moon works through.
                 Assert.InRange(
-                    Math.Abs(body.DeclinationDeg),
-                    0.0,
+                    track.InclinationDeg,
+                    NearSky.HomeWorldObliquityDeg - NearSky.MaxHomeMoonOrbitTiltDeg,
                     NearSky.MaxHomeMoonDeclinationDeg);
+                Assert.InRange(track.NodeRightAscensionDeg, 0.0, 360.0);
+                Assert.InRange(track.ArgumentOfLatitudeDeg, 0.0, 360.0);
+                Assert.Equal(360.0 / moon.DayLengthDays, track.ArgumentRateDegPerDay, 9);
+
+                // The node walks backwards, and slowly: one turn per nodal cycle of this moon's own
+                // months, however long its month happens to be.
+                Assert.Equal(
+                    -360.0 / (NearSky.NodalCycleMonths * moon.DayLengthDays),
+                    track.NodeRegressionDegPerDay,
+                    12);
+                Assert.True(track.NodeRegressionDegPerDay < 0.0);
+
+                // The flat values beside the track are records of it, not instructions: the hour angle
+                // is where the track has the moon on day zero, and the rate is its average drift.
+                Assert.Equal(NearSky.DayZeroHourAngleDeg(track), body.HourAngleDeg, 9);
+                Assert.Equal(0.0, body.DeclinationDeg);
                 Assert.Equal(
                     NearSky.HomeMoonHourAngleRateDegPerDay(moon.DayLengthDays),
                     body.HourAngleRateDegPerDay,

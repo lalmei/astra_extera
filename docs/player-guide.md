@@ -154,6 +154,14 @@ On a **planet world**, the generator provides zero to three moons. Each travels 
 rate derived from its generated month. A slow moon rises later on successive days; a moon with a
 month shorter than the day can move the other way across the sky. A moonless night is a valid result.
 
+Each moon also runs a tilted circle rather than the same track every night. Its orbit leans out of the
+celestial equator by roughly your world's own axial tilt, so over a month the moon climbs north of the
+equator, comes back through it, goes as far south, and returns — and where it rises walks along the
+horizon as it goes. Watch one across a month and it comes up from a noticeably different part of the
+horizon at the top of its climb than at the bottom. Over years the whole track slides slowly around
+the sky, so the moon eventually makes that climb against different stars. It reaches no further north
+or south for that; how far it reaches is the tilt, and that is fixed for the life of the world.
+
 On a **moon world**, the playable world is tidally locked to a gas giant. The parent therefore hangs
 over one patch of ground instead of rising and setting: stand still and it never moves, whatever the
 hour or the season. It changes phase with the sun. Its rings appear almost edge-on because the home
@@ -166,9 +174,10 @@ it and it sinks westward at the same rate the sun does. Far enough around the wo
 not come back: the far side of a tidally locked moon never sees the planet it orbits. The sibling
 moons keep their positions relative to the giant throughout, because they are placed against it.
 
-The generated near-body motion is a game model. Planet-world moons use circular paths at fixed
-declination. The moon-world system uses circular, nearly coplanar satellite geometry, and the parent
-giant is fixed. These are intentional approximations rather than a full gravitational integration.
+The generated near-body motion is a game model. Planet-world moons use circular orbits, inclined to
+the equator and with a slowly regressing node. The moon-world system uses circular, nearly coplanar
+satellite geometry, and the parent giant is fixed. These are intentional approximations rather than a
+full gravitational integration: nothing here perturbs anything else, and orbits never change shape.
 
 ### Your nights are not dark here
 

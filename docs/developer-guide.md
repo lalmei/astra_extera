@@ -174,10 +174,12 @@ same `polarEquatorDistance` scale that Vintage Story uses for latitude and shift
 calendar delegate when `LongitudeAwareSun` is enabled. A compatibility mod that also shifts the sun
 can double-apply longitude; that integration belongs at the AstraTerra boundary.
 
-Near bodies use **hour angle** rather than right ascension. A moon-world parent has a fixed hour
-angle, while orbiting siblings use either a flat angular rate or `NearBodyOrbit` for bounded motion
-about the parent. Planet-world moons use circular motion at fixed declination. This is deliberately
-separate from the heliocentric planet ephemeris.
+Near bodies use **hour angle** rather than right ascension, with one exception. A moon-world parent has
+a fixed hour angle, while orbiting siblings use either a flat angular rate or `NearBodyOrbit` for
+bounded motion about the parent. Planet-world moons are the exception: they carry a `NearBodyTrack`,
+an inclined circular orbit held in the equatorial frame, so their right ascension and declination are
+both derived per frame and the prime-meridian convention below does not apply to them. All of this is
+deliberately separate from the heliocentric planet ephemeris.
 
 That authored hour angle is measured **at the world's prime meridian**, and AstraTerra adds the
 observer's longitude to it when placing the body:
@@ -359,9 +361,24 @@ selected planet, ring, and moon images before AstraTerra applies per-frame light
 AstraTerra's `MoonArt` selection cannot restore the Vintage Story disc while this catalog is active.
 Only the drawing is hidden: Vintage Story moonlight and calendar phase continue.
 
-The generated parent and moon motion is circular/coplanar and does not include orbital perturbations.
-Home moons keep a fixed declination instead of a full inclined monthly path. Those limits should be
-preserved in player documentation unless the model changes.
+The generated parent and moon motion is circular and does not include orbital perturbations. A moon
+world's parent giant and its siblings are coplanar, which regular satellites of a giant are to well
+inside anything the eye catches at that distance.
+
+A planet world's own moons are not: each is authored as a `HomeMoonTrack` and handed over as
+AstraTerra's `NearBodyTrack`, so it runs a tilted circle rather than one line of declination. The
+inclination is the world's own axial tilt (`HomeWorldObliquityDeg`, Earth's 23.44°, because
+AstraExtera does not change a planet world's tilt) leaned on by up to `MaxHomeMoonOrbitTiltDeg` of the
+moon's own orbit, capped at `MaxHomeMoonDeclinationDeg`. The node regresses once per
+`NodalCycleMonths` of that moon's own months, which slides the track around the sky over years without
+changing how far it reaches. Declination and right ascension are both derived per frame by AstraTerra;
+the `HourAngleDeg` and `HourAngleRateDegPerDay` on the body are records of the track rather than
+instructions — day-zero position and average drift — and `DeclinationDeg` is zero, because a track
+that crosses the equator has no one declination to report.
+
+A tracked body is held in the equatorial frame, so it keeps station with the star field and the
+prime-meridian convention does not apply to it. That is the one place where near-body motion here is
+not anchored to the ground.
 
 ## Assets and handbook
 
