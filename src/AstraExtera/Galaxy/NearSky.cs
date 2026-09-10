@@ -29,6 +29,32 @@ public sealed record SiblingOrbit(
     double PhaseRateDegPerDay);
 
 /// <summary>
+/// The tilted circle a moon of the playable world is on, for the moons that go round the observer
+/// rather than hanging beside a giant.
+/// </summary>
+/// <param name="InclinationDeg">
+/// How far the orbit tilts out of the world's celestial equator, which is how far north and south of
+/// it the moon gets. A moon of a tilted world sits near that world's ecliptic rather than its
+/// equator, so this is mostly the world's own axial tilt.
+/// </param>
+/// <param name="NodeRightAscensionDeg">
+/// Where the moon crosses the equator going north at day zero, and so which part of the sky its
+/// track leans into.
+/// </param>
+/// <param name="ArgumentOfLatitudeDeg">How far past that crossing it sits at day zero.</param>
+/// <param name="ArgumentRateDegPerDay">How fast it goes round: <c>360 / month</c>.</param>
+/// <param name="NodeRegressionDegPerDay">
+/// How fast the crossing itself walks around the equator, which slides the whole track around the
+/// sky over years. Negative, as the Moon's is.
+/// </param>
+public sealed record HomeMoonTrack(
+    double InclinationDeg,
+    double NodeRightAscensionDeg,
+    double ArgumentOfLatitudeDeg,
+    double ArgumentRateDegPerDay,
+    double NodeRegressionDegPerDay);
+
+/// <summary>
 /// One body close enough to show a disc, placed for the tidally locked world that watches it.
 /// </summary>
 /// <param name="AngularDiameterDeg">
@@ -67,7 +93,8 @@ public sealed record NearBody(
     double DeclinationDeg,
     double Brightness,
     double RingOpenness,
-    SiblingOrbit? Orbit = null);
+    SiblingOrbit? Orbit = null,
+    HomeMoonTrack? Track = null);
 
 /// <summary>
 /// The near sky of the playable world: on a moon world the giant it orbits and its sibling moons,
@@ -152,11 +179,36 @@ public static class NearSky
     public const double MaxOrbitInclinationDeg = 0.6;
 
     /// <summary>
-    /// How far off the celestial equator a planet world's own moon is allowed to run. A moon of a
-    /// tilted world sits near its ecliptic rather than its equator, so it keeps a track of its own
-    /// somewhere in this band -- Earth's runs between 18 and 29 degrees, depending on the decade.
+    /// How far off the celestial equator a planet world's own moon is allowed to run, which with a
+    /// tilted circle is the same as how far its orbit may tilt. Earth's moon reaches between 18 and 29
+    /// degrees depending on the decade, and this caps the band at the top of that.
     /// </summary>
     public const double MaxHomeMoonDeclinationDeg = 28.0;
+
+    /// <summary>
+    /// The tilt of a planet world's own axis, which is what its moons' orbits are measured against.
+    /// </summary>
+    /// <remarks>
+    /// Earth's, because a planet world here keeps Earth's: AstraExtera generates the sky rather than
+    /// the seasons, and Vintage Story's calendar and daylight are left alone. A moon of a tilted world
+    /// orbits near that world's ecliptic rather than its equator -- the ecliptic is where it formed and
+    /// where the sun keeps it -- so the tilt is most of the inclination its track ends up with.
+    /// </remarks>
+    public const double HomeWorldObliquityDeg = 23.44;
+
+    /// <summary>
+    /// How far a moon's own orbit may lean off its world's ecliptic, on top of that world's tilt. The
+    /// Moon's leans 5.15 degrees, which is why the band it reaches breathes over a nodal cycle rather
+    /// than sitting exactly on Earth's tilt.
+    /// </summary>
+    public const double MaxHomeMoonOrbitTiltDeg = 6.0;
+
+    /// <summary>
+    /// How many months a moon's node takes to walk right round the equator. The Moon's takes 18.6
+    /// years, which is a little under 249 of its own months; keeping the count rather than the years
+    /// gives a moon on a different month a nodal cycle in proportion to it.
+    /// </summary>
+    public const double NodalCycleMonths = 248.7;
 
     public static IReadOnlyList<NearBody> Author(GalaxyPlacement placement)
     {
@@ -261,10 +313,21 @@ public static class NearSky
     /// fifty minutes later each day, and why one on a month shorter than the day rises in the west.
     /// </para>
     /// <para>
-    /// Each moon keeps one declination rather than working its way up and down the band over a
-    /// month, so it runs the same track across the sky each night. That swing is a slow business --
-    /// Earth's takes a month to cross and eighteen years to change how far it reaches -- and what a
-    /// player sees of it is a moon that rises a little further north or south, not a different sky.
+    /// Each moon is authored as the tilted circle it is really on rather than as a line of
+    /// declination, so it works its way up and down its band over a month and rises from a different
+    /// part of the horizon as it goes. The tilt is the world's own axis, give or take the lean of the
+    /// moon's own orbit: a moon sits near the ecliptic it formed in, not over its world's equator. The
+    /// node walks slowly round from there, which slides the whole track through the sky over years the
+    /// way the Moon's nodal cycle does -- eighteen years for Earth's, and about the same count of
+    /// months for any other.
+    /// </para>
+    /// <para>
+    /// The flat hour-angle rate is still recorded beside the track, because it is still true on
+    /// average: the world's turn less the moon's month, which is why a moon like Earth's rises about
+    /// fifty minutes later each day. What changed is where the world's rotation is accounted for. It
+    /// used to be baked into the moon's own authored rate; now it is the sidereal angle's business,
+    /// and the moon is given only its own motion, so it keeps station with the stars rather than with
+    /// the ground.
     /// </para>
     /// </remarks>
     private static IReadOnlyList<NearBody> AuthorHomeMoons(GalaxyPlacement placement)
@@ -287,6 +350,7 @@ public static class NearSky
                 continue;
             }
 
+            var track = AuthorHomeMoonTrack(ref rng, moon.DayLengthDays);
             bodies.Add(new NearBody(
                 $"home-moon-{moon.Index}",
                 NearBodyRole.HomeMoon,
@@ -294,14 +358,83 @@ public static class NearSky
                 moon.DisplayName,
                 angularDiameter,
                 DiscFraction: 1.0,
-                HourAngleDeg: rng.NextRange(0.0, 360.0),
+
+                // Where the track has the moon standing on day zero, and how fast a standing observer
+                // sees it drift once the world's own turn is taken off. Both are records rather than
+                // instructions: the track is what places it.
+                HourAngleDeg: DayZeroHourAngleDeg(track),
                 HourAngleRateDegPerDay: HomeMoonHourAngleRateDegPerDay(moon.DayLengthDays),
-                DeclinationDeg: rng.NextRange(-MaxHomeMoonDeclinationDeg, MaxHomeMoonDeclinationDeg),
+
+                // A track that crosses the equator has no one declination to report.
+                DeclinationDeg: 0.0,
                 Brightness: rng.NextRange(0.38, 0.62),
-                RingOpenness: 0.0));
+                RingOpenness: 0.0,
+                Track: track));
         }
 
         return bodies;
+    }
+
+    /// <summary>
+    /// The circle one moon of the playable world goes round.
+    /// </summary>
+    /// <remarks>
+    /// The tilt is the world's own, give or take the lean of the moon's own orbit: a moon sits near the
+    /// ecliptic it formed in rather than over its world's equator, which is why the Moon runs up to
+    /// Earth's 23.44 degrees and a bit rather than along the celestial equator. Everything else about
+    /// the circle is where the moon happens to be on it and which way round the sky it leans, neither
+    /// of which anything else in the sky depends on.
+    /// </remarks>
+    private static HomeMoonTrack AuthorHomeMoonTrack(ref SplitMix64 rng, double monthDays)
+    {
+        var lean = rng.NextRange(-MaxHomeMoonOrbitTiltDeg, MaxHomeMoonOrbitTiltDeg);
+        var inclination = Math.Clamp(
+            Math.Abs(HomeWorldObliquityDeg + lean),
+            0.0,
+            MaxHomeMoonDeclinationDeg);
+        var month = monthDays <= 0.0 ? 1.0 : monthDays;
+        return new HomeMoonTrack(
+            inclination,
+            NodeRightAscensionDeg: rng.NextRange(0.0, 360.0),
+            ArgumentOfLatitudeDeg: rng.NextRange(0.0, 360.0),
+            ArgumentRateDegPerDay: 360.0 / month,
+            NodeRegressionDegPerDay: -360.0 / (NodalCycleMonths * month));
+    }
+
+    /// <summary>
+    /// The hour angle a tracked moon stands at on day zero, for an observer whose meridian is on the
+    /// celestial origin. Kept on the body as the record AstraTerra asks for beside a track.
+    /// </summary>
+    public static double DayZeroHourAngleDeg(HomeMoonTrack track)
+    {
+        ArgumentNullException.ThrowIfNull(track);
+        return CelestialMath.NormalizeDegrees(-DayZeroRightAscensionDeg(track));
+    }
+
+    /// <summary>Where among the stars a tracked moon stands on day zero.</summary>
+    /// <remarks>
+    /// Read back out of AstraTerra's own placement rather than worked out again here, so the number
+    /// recorded on the body cannot drift away from the track that is actually drawn.
+    /// </remarks>
+    public static double DayZeroRightAscensionDeg(HomeMoonTrack track)
+    {
+        ArgumentNullException.ThrowIfNull(track);
+        var published = ToAstraTerraTrack(track);
+        return CelestialMath.NormalizeDegrees(
+            NearBodyRenderModel.NodeRightAscensionDeg(published, 0.0)
+            + NearBodyRenderModel.EquatorialOffsetDeg(published, 0.0));
+    }
+
+    /// <summary>The AstraTerra record a track is handed over as.</summary>
+    public static NearBodyTrack ToAstraTerraTrack(HomeMoonTrack track)
+    {
+        ArgumentNullException.ThrowIfNull(track);
+        return new NearBodyTrack(
+            track.InclinationDeg,
+            track.NodeRightAscensionDeg,
+            track.ArgumentOfLatitudeDeg,
+            track.ArgumentRateDegPerDay,
+            track.NodeRegressionDegPerDay);
     }
 
     /// <summary>

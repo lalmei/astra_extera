@@ -36,8 +36,9 @@ current limitations. The in-game handbook keeps the same instructions close to t
   angle than Earth's sky.
 - Companion planets use generated, simplified Keplerian elements. Comets use generated apparition
   tracks, and meteor showers are scheduled from those authored comets.
-- A planet world has zero to three generated moons. On a moon world, the parent giant stays fixed in
-  the sky and sibling moons move around it.
+- A planet world has zero to three generated moons, each on an inclined orbit that carries it up and
+  down its own band of sky over a month. On a moon world, the parent giant stays fixed in the sky and
+  sibling moons move around it.
 - Earth guide groups, sky cultures, and deep-sky objects are removed from the client catalog. Players
   can draw their own constellations, but AstraExtera does not generate nebulae, clusters, or galaxies
   for telescope plates.

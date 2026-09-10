@@ -55,7 +55,12 @@ public static class NearBodyExport
                         orbit.DistanceRatio,
                         orbit.PhaseDeg,
                         orbit.PhaseRateDegPerDay)
-                    : null));
+                    : null,
+
+                // A moon of this world goes round the observer on a tilted circle; a sibling goes
+                // round the giant they both orbit. No body has both, and AstraTerra places whichever
+                // one it is given ahead of the flat hour angle beside it.
+                body.Track is { } track ? NearSky.ToAstraTerraTrack(track) : null));
         }
 
         return new NearBodyCatalog(NearBodyCatalog.CurrentSchemaVersion, HidesVanillaMoon: true, entries);
