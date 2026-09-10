@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace AstraExtera.Galaxy;
 
 public enum GalaxyMorphology
@@ -257,9 +259,25 @@ public sealed record GalaxyPlacement(
     ObserverWorldKind WorldKind,
     EarthAnalogWorld World,
     LocalSystem System,
-    CelestialOrientation Orientation)
+    CelestialOrientation Orientation,
+    GalaxyConstraints? AuthoredUnder = null)
 {
     public const int CurrentSchemaVersion = 7;
+
+    /// <summary>
+    /// What the server asked the generator for when this sky was authored, or null when it asked for
+    /// nothing.
+    /// </summary>
+    /// <remarks>
+    /// Declared with a default rather than as a positional field so that a placement saved before
+    /// this existed still loads: a missing property reads back as null, which is what an
+    /// unconstrained sky records anyway. That is deliberate -- bumping
+    /// <see cref="CurrentSchemaVersion"/> would regenerate the sky of every existing save, throwing
+    /// away constellation drawings and star names to record a field that is null for all of them.
+    /// The config applies at authoring time only; this is the receipt.
+    /// </remarks>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public GalaxyConstraints? AuthoredUnder { get; init; } = GalaxyConstraints.OrNull(AuthoredUnder);
 
     public bool CanHostIronCore => MetallicityModel.CanHostIronCore(Location.MetallicityFeH);
 

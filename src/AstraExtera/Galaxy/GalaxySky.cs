@@ -14,6 +14,19 @@ public sealed record GalaxySky(GalaxyPlacement Placement, StarField StarField, L
     public static GalaxySky Author(long worldSeed)
         => Author(GalaxyGenerator.Generate(worldSeed));
 
+    public static GalaxySky Author(long worldSeed, GalaxyConstraints? constraints)
+        => Author(worldSeed, constraints, out _);
+
+    /// <summary>
+    /// Authors a sky under a server's constraints, reporting through <paramref name="outcome"/>
+    /// whether they could be met so the caller can log it.
+    /// </summary>
+    public static GalaxySky Author(
+        long worldSeed,
+        GalaxyConstraints? constraints,
+        out GalaxyConstraintOutcome outcome)
+        => Author(GalaxyGenerator.Generate(worldSeed, constraints, out outcome));
+
     public static GalaxySky Author(GalaxyPlacement placement)
     {
         ArgumentNullException.ThrowIfNull(placement);
@@ -43,8 +56,24 @@ public static class GalaxySkyStore
         GalaxyPlacement? storedPlacement,
         StarField? storedStars,
         long worldSeed,
-        LocalSystemSky? storedLocalSky = null)
+        LocalSystemSky? storedLocalSky = null,
+        GalaxyConstraints? constraints = null)
+        => Resolve(storedPlacement, storedStars, worldSeed, storedLocalSky, constraints, out _);
+
+    /// <summary>
+    /// As above, and reports how a fresh authoring fared against <paramref name="constraints"/>.
+    /// A save that already has a placement never consults them: the sky it is holding was authored
+    /// under whatever was configured at the time, and the config has no business rewriting it.
+    /// </summary>
+    public static GalaxySkyResolution Resolve(
+        GalaxyPlacement? storedPlacement,
+        StarField? storedStars,
+        long worldSeed,
+        LocalSystemSky? storedLocalSky,
+        GalaxyConstraints? constraints,
+        out GalaxyConstraintOutcome? outcome)
     {
+        outcome = null;
         if (storedPlacement is not null
             && storedPlacement.SchemaVersion == GalaxyPlacement.CurrentSchemaVersion)
         {
@@ -60,6 +89,8 @@ public static class GalaxySkyStore
         }
 
         // A rerolled cosmology keeps its own seed even when a schema upgrade rebuilds the sky.
-        return new GalaxySkyResolution(GalaxySky.Author(storedPlacement?.WorldSeed ?? worldSeed), true, true, true);
+        var authored = GalaxySky.Author(storedPlacement?.WorldSeed ?? worldSeed, constraints, out var authoring);
+        outcome = authoring;
+        return new GalaxySkyResolution(authored, true, true, true);
     }
 }

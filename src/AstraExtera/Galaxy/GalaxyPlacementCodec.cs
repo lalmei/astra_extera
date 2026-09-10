@@ -34,7 +34,8 @@ public static class GalaxyPlacementCodec
             $"world={kind}; star={placement.System.StarClassLabel} {placement.System.StarMassSolar:0.00} Msun; " +
             $"a={placement.System.OrbitalDistanceAu:0.00} AU; " +
             $"Rearth={placement.World.RadiusEarth:0.00}; g={placement.World.SurfaceGravityG:0.00}; " +
-            $"Fe={placement.World.BulkIronMassFraction:0.00}; T={placement.World.SurfaceTemperatureK:0} K.";
+            $"Fe={placement.World.BulkIronMassFraction:0.00}; T={placement.World.SurfaceTemperatureK:0} K; " +
+            $"constraints={placement.AuthoredUnder?.Describe() ?? "none"}.";
     }
 
     public static string Describe(GalaxySky sky)

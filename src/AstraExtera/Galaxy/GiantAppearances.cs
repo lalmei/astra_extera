@@ -27,7 +27,11 @@ public static class GiantAppearances
     /// <summary>Beyond roughly this, ring particles clump into moonlets instead of staying rings.</summary>
     public const double MaxRingOuterPlanetRadii = 4.20;
 
-    public static GiantAppearance Sample(ref SplitMix64 rng, CompanionRole role, double massEarth)
+    public static GiantAppearance Sample(
+        ref SplitMix64 rng,
+        CompanionRole role,
+        double massEarth,
+        PresenceConstraint rings = PresenceConstraint.Any)
     {
         var obliquity = SampleObliquity(ref rng);
         var (light, dark) = SampleBandColors(ref rng, role);
@@ -54,7 +58,7 @@ public static class GiantAppearances
             dark.G,
             dark.B,
             SampleStorm(ref rng, role, bandCount, light, dark),
-            SampleRing(ref rng, role, massEarth));
+            SampleRing(ref rng, role, massEarth, rings));
     }
 
     /// <summary>
@@ -200,7 +204,11 @@ public static class GiantAppearances
             b);
     }
 
-    private static PlanetRing? SampleRing(ref SplitMix64 rng, CompanionRole role, double massEarth)
+    private static PlanetRing? SampleRing(
+        ref SplitMix64 rng,
+        CompanionRole role,
+        double massEarth,
+        PresenceConstraint required)
     {
         // Every giant in the solar system has rings; only one has rings worth seeing. Massive
         // giants hold theirs longest, so mass tips the odds rather than deciding them.
@@ -213,7 +221,18 @@ public static class GiantAppearances
         };
 
         chance += Math.Clamp((massEarth - 100.0) / 1200.0, -0.08, 0.12);
-        if (!rng.NextBool(chance))
+
+        // The coin is taken either way. A constrained ring overrides the answer rather than the
+        // draw, so what the rest of the giant looks like is unchanged by having asked.
+        var kept = rng.NextBool(chance);
+        kept = required switch
+        {
+            PresenceConstraint.Required => true,
+            PresenceConstraint.None => false,
+            _ => kept
+        };
+
+        if (!kept)
         {
             return null;
         }

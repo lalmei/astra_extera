@@ -11,27 +11,105 @@ public static class GalaxyGenerator
     public const int MaxLocationAttempts = 256;
     public const double EllipticalProbability = 0.025;
 
+    /// <summary>
+    /// Whole placements drawn before a constrained request gives up and takes what it can get.
+    /// </summary>
+    /// <remarks>
+    /// Most constraints are applied by narrowing a choice the generator was about to make, so they
+    /// are satisfied on the first draw. Rings and a planet's moons are not: they fall out of
+    /// sampling deep inside <see cref="LocalSystem"/>, whose own attempt budget can run out and
+    /// return its fallback system. This is the budget for redrawing the whole placement when that
+    /// happens, and it is spent only when something was actually asked for.
+    /// </remarks>
+    public const int MaxConstrainedAttempts = 24;
+
     public static GalaxyPlacement Generate(long worldSeed)
+        => Generate(worldSeed, null);
+
+    public static GalaxyPlacement Generate(long worldSeed, GalaxyConstraints? constraints)
+        => Generate(worldSeed, constraints, out _);
+
+    /// <summary>
+    /// Authors a placement, narrowed by <paramref name="constraints"/>, and reports whether the
+    /// result is what was asked for.
+    /// </summary>
+    /// <remarks>
+    /// An unconstrained request is the old generator unchanged: the first draw always satisfies an
+    /// empty constraint set, so the same seed gives the same placement it always gave. A request
+    /// that cannot be met produces a world anyway -- an unsatisfiable config must not hang a save
+    /// load -- and says so through <paramref name="outcome"/> for the caller to log.
+    /// </remarks>
+    public static GalaxyPlacement Generate(
+        long worldSeed,
+        GalaxyConstraints? constraints,
+        out GalaxyConstraintOutcome outcome)
     {
-        var morphologyRng = new SplitMix64(MixSeed(worldSeed, 0xE11A));
-        if (morphologyRng.NextUnit() < EllipticalProbability)
+        var requested = GalaxyConstraints.OrUnconstrained(constraints);
+        var (effective, warnings) = requested.Reconcile();
+        var attempts = effective.IsUnconstrained ? 1 : MaxConstrainedAttempts;
+
+        for (var attempt = 0; attempt < attempts; attempt++)
         {
-            var ellipticalRng = new SplitMix64(MixSeed(worldSeed, 0xE11B));
-            return Place(worldSeed, GenerateElliptical(ref ellipticalRng), ref ellipticalRng);
+            var placement = Draw(worldSeed, attempt, effective);
+            if (effective.IsSatisfiedBy(placement))
+            {
+                outcome = new GalaxyConstraintOutcome(requested, effective, true, attempt + 1, warnings);
+                return placement;
+            }
         }
 
-        var rng = new SplitMix64(MixSeed(worldSeed, 0xA57A));
-        return Place(worldSeed, GenerateSpiral(ref rng), ref rng);
+        // Nothing converged. An unconstrained sky is a real one, which is more use to a server than
+        // a stall or a throw, and the outcome carries what could not be met.
+        outcome = new GalaxyConstraintOutcome(
+            requested,
+            GalaxyConstraints.Unconstrained,
+            false,
+            attempts,
+            warnings);
+        return Draw(worldSeed, 0, GalaxyConstraints.Unconstrained);
     }
 
-    private static GalaxyPlacement Place(long worldSeed, GalaxyBlueprint galaxy, ref SplitMix64 rng)
+    /// <summary>
+    /// One draw. Attempt zero uses the seed exactly as it always did, so an unconstrained placement
+    /// is bit-for-bit the one this generator produced before constraints existed.
+    /// </summary>
+    private static GalaxyPlacement Draw(long worldSeed, int attempt, GalaxyConstraints constraints)
+    {
+        var attemptSeed = worldSeed ^ (attempt * unchecked((long)0x9E3779B97F4A7C15UL));
+        var morphologyRng = new SplitMix64(MixSeed(attemptSeed, 0xE11A));
+        var elliptical = constraints.GalaxyMorphology switch
+        {
+            MorphologyConstraint.Elliptical => true,
+            MorphologyConstraint.Spiral => false,
+
+            // The roll is taken either way so that forcing a morphology changes the morphology and
+            // nothing downstream of it.
+            _ => morphologyRng.NextUnit() < EllipticalProbability
+        };
+
+        if (elliptical)
+        {
+            var ellipticalRng = new SplitMix64(MixSeed(attemptSeed, 0xE11B));
+            return Place(worldSeed, GenerateElliptical(ref ellipticalRng), ref ellipticalRng, constraints);
+        }
+
+        var rng = new SplitMix64(MixSeed(attemptSeed, 0xA57A));
+        return Place(worldSeed, GenerateSpiral(ref rng), ref rng, constraints);
+    }
+
+    private static GalaxyPlacement Place(
+        long worldSeed,
+        GalaxyBlueprint galaxy,
+        ref SplitMix64 rng,
+        GalaxyConstraints constraints)
     {
         var location = SampleHabitableLocation(galaxy, ref rng);
-        var worldKind = rng.NextBool(0.28)
+        var rolledKind = rng.NextBool(0.28)
             ? ObserverWorldKind.TerrestrialMoon
             : ObserverWorldKind.TerrestrialPlanet;
+        var worldKind = constraints.ResolveWorldKind(rolledKind);
         var bulk = EarthAnalog.SampleBulk(ref rng);
-        var system = LocalSystem.Sample(ref rng, worldKind, bulk, out var world);
+        var system = LocalSystem.Sample(ref rng, worldKind, bulk, constraints, out var world);
         var orientation = CelestialOrientation.Sample(ref rng);
 
         return new GalaxyPlacement(
@@ -42,7 +120,8 @@ public static class GalaxyGenerator
             worldKind,
             world,
             system,
-            orientation);
+            orientation,
+            GalaxyConstraints.OrNull(constraints));
     }
 
     private static GalaxyBlueprint GenerateSpiral(ref SplitMix64 rng)

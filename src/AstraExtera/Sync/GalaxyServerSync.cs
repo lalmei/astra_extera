@@ -9,6 +9,7 @@ public sealed class GalaxyServerSync
     private readonly ICoreServerAPI api;
     private readonly AstraTerraCatalogBridge catalogBridge;
     private readonly AstraTerraWorldBridge worldBridge;
+    private readonly GalaxyConstraints constraints;
     private IServerNetworkChannel? channel;
     private GalaxySky? sky;
 
@@ -17,7 +18,11 @@ public sealed class GalaxyServerSync
         this.api = api;
         catalogBridge = new AstraTerraCatalogBridge(api);
         worldBridge = new AstraTerraWorldBridge(api, config);
+        constraints = config.GetGalaxyConstraints();
     }
+
+    /// <summary>What this server asks the generator for, for authoring and for reroll alike.</summary>
+    public GalaxyConstraints Constraints => constraints;
 
     public GalaxySky? Sky => sky;
 
@@ -37,7 +42,8 @@ public sealed class GalaxyServerSync
             nextSeed = Random.Shared.NextInt64();
         }
 
-        var replacement = GalaxySky.Author(nextSeed);
+        var replacement = GalaxySky.Author(nextSeed, constraints, out var outcome);
+        Report(outcome);
         var packet = ToPacket(replacement);
         Store(packet);
         sky = replacement;
@@ -103,13 +109,34 @@ public sealed class GalaxyServerSync
             TryLoadPlacement(),
             TryLoadStars(),
             api.World.Seed,
-            TryLoadLocalSky());
+            TryLoadLocalSky(),
+            constraints,
+            out var outcome);
+        Report(outcome);
         if (resolution.PlacementDirty || resolution.StarsDirty || resolution.LocalSkyDirty)
         {
             Store(ToPacket(resolution.Sky), resolution.PlacementDirty, resolution.StarsDirty, resolution.LocalSkyDirty);
         }
 
         return resolution.Sky;
+    }
+
+    /// <summary>
+    /// Says out loud what the generator was asked for and whether it managed it. A constraint that
+    /// could not be met produced a world anyway, and an operator staring at a sky that is not the
+    /// one they configured needs the log to tell them which setting to widen.
+    /// </summary>
+    private void Report(GalaxyConstraintOutcome? outcome)
+    {
+        if (outcome is null)
+        {
+            return;
+        }
+
+        foreach (var message in outcome.Messages())
+        {
+            api.Logger.Warning(message);
+        }
     }
 
     private void Store(
