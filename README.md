@@ -14,7 +14,7 @@ length, or world generation.
 ## Install and start observing
 
 1. Install Vintage Story 1.22.2 or newer.
-2. Install AstraTerra 0.12.0 or newer, then install AstraExtera. Enable both mods.
+2. Install AstraTerra 0.13.0 or newer, then install AstraExtera. Enable both mods.
 3. Join a world and press **Ctrl+Shift+S** to inspect its galaxy and local system. The key is
    remappable as **Galaxy panel**.
 4. Open the handbook with **H**, select **Astronomy**, and begin with a Sky Disc or telescope.
