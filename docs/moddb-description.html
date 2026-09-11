@@ -84,7 +84,7 @@
 
 <h3>Server commands</h3>
 
-<p><code>/astraextera galaxy</code> reports the current cosmology and local system. An administrator with <code>controlserver</code> can run <code>/astraextera reroll</code> for a new random cosmology or <code>/astraextera reroll 42</code> for a signed 64-bit seed. Omit the slash in the server console.</p>
+<p><code>/astraextera galaxy</code> reports the current cosmology and local system. An administrator with <code>controlserver</code> can look before leaping: <code>/astraextera preview 42</code> prints a candidate sky without saving or broadcasting it, and <code>/astraextera find kind=moon star=K rings=required</code> draws seeds until one matches and reports it. <code>/astraextera reroll 42 confirm</code> then applies one; without <code>confirm</code> it only says what it would cost. Omit the slash in the server console.</p>
 
 <p>A reroll stores and broadcasts a replacement galaxy placement, star field and local sky. Terrain and the world-generation seed do not change. Existing constellation records and star names remain, but their star IDs now refer to the replacement catalog, so old drawings change.</p>
 

@@ -574,8 +574,9 @@ stopping at `make test`:
 4. Travel far enough east or west to make longitude visible. Confirm the sun, fixed stars, glow,
    Sextant, Astrolabe, and displayed local time agree.
 5. Join from a second client. Confirm both clients receive identical catalog counts and panel facts.
-6. Reroll to an explicit seed. Confirm connected clients update, the result survives a server
-   restart, and the terrain seed remains unchanged.
+6. Preview an explicit seed, then reroll to it with `confirm`. Confirm the preview changed nothing,
+   that the applied readout matches the previewed one, that connected clients update, that the
+   result survives a server restart, and that the terrain seed remains unchanged.
 7. Check `StarfieldMode`, both Milky Way passes, `MoonArt`, telescope zoom, constellation drawing,
    Sextant records, and Sky Disc marks against the limitations in the player guide.
 
