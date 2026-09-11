@@ -117,7 +117,8 @@ public sealed class AstraExteraConfig
     /// </remarks>
     public string HomeMoons { get; set; } = AnyValue;
 
-    public const string AnyValue = "any";
+    /// <summary>The word for "not a constraint", shared with the vocabulary the generator reads.</summary>
+    public const string AnyValue = GalaxyConstraints.AnyValue;
 
     public const double DefaultMaxMoonWorldObliquityDeg = 45.0;
 
@@ -167,10 +168,8 @@ public sealed class AstraExteraConfig
             return parsed;
         }
 
-        var allowed = string.Join(
-            ", ",
-            Enum.GetNames<T>().Select(name => name.Equals("Any", StringComparison.Ordinal) ? AnyValue : name.ToLowerInvariant()));
-        complaints.Add($"{setting} '{value}' is not one of {allowed}; using '{AnyValue}'.");
+        complaints.Add(
+            $"{setting} '{value}' is not one of {GalaxyConstraints.Allowed<T>(", ")}; using '{AnyValue}'.");
         return fallback;
     }
 }

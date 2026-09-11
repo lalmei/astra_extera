@@ -179,27 +179,37 @@ public sealed record GalaxyConstraints(
     /// </summary>
     public (GalaxyConstraints Reconciled, IReadOnlyList<string> Warnings) Reconcile()
     {
-        var warnings = new List<string>();
+        var warnings = new List<string>(2);
         var reconciled = this;
 
-        if (WorldKind == WorldKindConstraint.Moon && HomeMoons == PresenceConstraint.Required)
+        if (MoonWorldAskedForMoons is string moons)
         {
-            warnings.Add(
-                "HomeMoons 'required' asks a moon world for moons of its own; a moon world's family "
-                + "belongs to its giant. Ignoring HomeMoons.");
+            warnings.Add($"{moons} Ignoring HomeMoons.");
             reconciled = reconciled with { HomeMoons = PresenceConstraint.Any };
         }
 
-        if (PermittedWorldKinds().Count == 0)
+        if (StarClassWithNoHostWorld is string star)
         {
-            warnings.Add(
-                $"StarClass '{StarClass}' cannot host a {WorldKind.ToString().ToLowerInvariant()} world. "
-                + "Ignoring StarClass.");
+            warnings.Add($"{star} Ignoring StarClass.");
             reconciled = reconciled with { StarClass = StarClassConstraint.Any };
         }
 
         return (reconciled, warnings);
     }
+
+    /// <summary>
+    /// The same contradictions <see cref="Reconcile"/> finds, stated without what it does about
+    /// them.
+    /// </summary>
+    /// <remarks>
+    /// A config file and a typed command want opposite things from a contradiction. A config is
+    /// read while a save is loading, where the only acceptable outcome is a world, so it widens the
+    /// offending setting and warns. Someone typing <c>/astraextera find</c> has asked a question
+    /// with no answer, and silently answering a different question would send them hunting through
+    /// a search that was never going to converge. So the command refuses and quotes these.
+    /// </remarks>
+    public IReadOnlyList<string> Contradictions()
+        => [.. new[] { MoonWorldAskedForMoons, StarClassWithNoHostWorld }.OfType<string>()];
 
     /// <summary>How this set reads in a log line or in <c>/astraextera galaxy</c>.</summary>
     public string Describe()
@@ -237,6 +247,138 @@ public sealed record GalaxyConstraints(
 
         return string.Join(",", parts);
     }
+
+    /// <summary>
+    /// This set taken apart into one single-setting set per thing actually asked for, which is how
+    /// a search that found nothing can say which part of the request was the impossible one rather
+    /// than only that the whole of it failed.
+    /// </summary>
+    public IReadOnlyList<GalaxyConstraints> Clauses()
+    {
+        var clauses = new List<GalaxyConstraints>(5);
+        if (WorldKind != WorldKindConstraint.Any)
+        {
+            clauses.Add(new GalaxyConstraints(WorldKind: WorldKind));
+        }
+
+        if (StarClass != StarClassConstraint.Any)
+        {
+            clauses.Add(new GalaxyConstraints(StarClass: StarClass));
+        }
+
+        if (GalaxyMorphology != MorphologyConstraint.Any)
+        {
+            clauses.Add(new GalaxyConstraints(GalaxyMorphology: GalaxyMorphology));
+        }
+
+        if (ParentGiantRings != PresenceConstraint.Any)
+        {
+            clauses.Add(new GalaxyConstraints(ParentGiantRings: ParentGiantRings));
+        }
+
+        if (HomeMoons != PresenceConstraint.Any)
+        {
+            clauses.Add(new GalaxyConstraints(HomeMoons: HomeMoons));
+        }
+
+        return clauses;
+    }
+
+    /// <summary>The vocabulary, for a usage line.</summary>
+    public static string Usage
+        => $"Constraints are kind={Allowed<WorldKindConstraint>()}; star={Allowed<StarClassConstraint>()}; "
+           + $"galaxy={Allowed<MorphologyConstraint>()}; rings={Allowed<PresenceConstraint>()}; "
+           + $"moons={Allowed<PresenceConstraint>()}.";
+
+    /// <summary>
+    /// Reads the <c>kind=moon star=K rings=required</c> form an admin types, which is exactly what
+    /// <see cref="Describe"/> writes -- so the <c>constraints=</c> tail of
+    /// <c>/astraextera galaxy</c> can be pasted straight back in to look for another world like
+    /// this one.
+    /// </summary>
+    public static bool TryParse(string? text, out GalaxyConstraints constraints, out string error)
+    {
+        constraints = Unconstrained;
+        error = string.Empty;
+        var tokens = (text ?? string.Empty).Split(
+            [' ', '\t', ','],
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        foreach (var token in tokens)
+        {
+            var split = token.IndexOf('=');
+            if (split <= 0 || split == token.Length - 1)
+            {
+                error = $"'{token}' is not a key=value constraint. {Usage}";
+                return false;
+            }
+
+            var key = token[..split];
+            var value = token[(split + 1)..];
+            switch (key.ToLowerInvariant())
+            {
+                case "kind" when TryValue<WorldKindConstraint>(key, value, out var kind, out error):
+                    constraints = constraints with { WorldKind = kind };
+                    break;
+                case "star" when TryValue<StarClassConstraint>(key, value, out var star, out error):
+                    constraints = constraints with { StarClass = star };
+                    break;
+                case "galaxy" when TryValue<MorphologyConstraint>(key, value, out var galaxy, out error):
+                    constraints = constraints with { GalaxyMorphology = galaxy };
+                    break;
+                case "rings" when TryValue<PresenceConstraint>(key, value, out var rings, out error):
+                    constraints = constraints with { ParentGiantRings = rings };
+                    break;
+                case "moons" when TryValue<PresenceConstraint>(key, value, out var moons, out error):
+                    constraints = constraints with { HomeMoons = moons };
+                    break;
+                case "kind" or "star" or "galaxy" or "rings" or "moons":
+                    return false;
+                default:
+                    error = $"'{key}' is not a constraint. {Usage}";
+                    return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>What a setting accepts, written the way it is typed rather than the way it is named.</summary>
+    public static string Allowed<T>(string separator = "|") where T : struct, Enum
+        => string.Join(
+            separator,
+            Enum.GetNames<T>().Select(static name =>
+                name.Equals("Any", StringComparison.Ordinal) ? AnyValue : name.ToLowerInvariant()));
+
+    /// <summary>Everything that is not a constraint, which is the same word everywhere it is read.</summary>
+    public const string AnyValue = "any";
+
+    private static bool TryValue<T>(string setting, string value, out T parsed, out string error)
+        where T : struct, Enum
+    {
+        if (Enum.TryParse(value, ignoreCase: true, out parsed) && Enum.IsDefined(parsed))
+        {
+            error = string.Empty;
+            return true;
+        }
+
+        parsed = default;
+        error = $"{setting} '{value}' is not one of {Allowed<T>()}.";
+        return false;
+    }
+
+    /// <summary>Why a moon world cannot also be asked for moons, or null when it was not.</summary>
+    private string? MoonWorldAskedForMoons
+        => WorldKind == WorldKindConstraint.Moon && HomeMoons == PresenceConstraint.Required
+            ? "HomeMoons 'required' asks a moon world for moons of its own; a moon world's family "
+              + "belongs to its giant."
+            : null;
+
+    /// <summary>Why no world at all can sit under the star that was asked for, or null when one can.</summary>
+    private string? StarClassWithNoHostWorld
+        => PermittedWorldKinds().Count == 0
+            ? $"StarClass '{StarClass}' cannot host a {WorldKind.ToString().ToLowerInvariant()} world."
+            : null;
 
     /// <summary>Null and an all-<c>Any</c> set mean the same thing, and both are the common case.</summary>
     public static GalaxyConstraints OrUnconstrained(GalaxyConstraints? constraints)

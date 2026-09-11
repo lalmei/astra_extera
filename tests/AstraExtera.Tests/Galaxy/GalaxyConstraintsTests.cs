@@ -387,6 +387,82 @@ public sealed class GalaxyConstraintsTests
     }
 
     [Fact]
+    public void What_The_Readout_Writes_Is_What_The_Command_Reads_Back()
+    {
+        // The two halves of the same vocabulary: the constraints= tail of /astraextera galaxy can
+        // be pasted straight into /astraextera find to hunt for another world like this one.
+        var constraints = new GalaxyConstraints(
+            WorldKindConstraint.Planet,
+            StarClassConstraint.K,
+            MorphologyConstraint.Elliptical,
+            PresenceConstraint.Required,
+            PresenceConstraint.None);
+
+        Assert.Equal(
+            "kind=planet,star=K,galaxy=elliptical,rings=required,moons=none",
+            constraints.Describe());
+        Assert.True(GalaxyConstraints.TryParse(constraints.Describe(), out var parsed, out var error));
+        Assert.Equal(string.Empty, error);
+        Assert.Equal(constraints, parsed);
+    }
+
+    [Theory]
+    [InlineData("kind=moon", WorldKindConstraint.Moon, StarClassConstraint.Any)]
+    [InlineData("KIND=Moon STAR=k", WorldKindConstraint.Moon, StarClassConstraint.K)]
+    [InlineData("kind=moon,star=K", WorldKindConstraint.Moon, StarClassConstraint.K)]
+    [InlineData("  kind=moon   star=K  ", WorldKindConstraint.Moon, StarClassConstraint.K)]
+    [InlineData("kind=any", WorldKindConstraint.Any, StarClassConstraint.Any)]
+    public void Constraints_Are_Read_However_They_Are_Spaced_And_Cased(
+        string typed,
+        WorldKindConstraint kind,
+        StarClassConstraint star)
+    {
+        Assert.True(GalaxyConstraints.TryParse(typed, out var parsed, out _));
+        Assert.Equal(kind, parsed.WorldKind);
+        Assert.Equal(star, parsed.StarClass);
+    }
+
+    [Theory]
+    [InlineData("star=Q", "star 'Q' is not one of any|m|k|g|f")]
+    [InlineData("colour=blue", "'colour' is not a constraint")]
+    [InlineData("moon", "'moon' is not a key=value constraint")]
+    [InlineData("kind=", "'kind=' is not a key=value constraint")]
+    [InlineData("=moon", "'=moon' is not a key=value constraint")]
+    public void Anything_Unreadable_Is_Refused_By_Name(string typed, string expected)
+    {
+        Assert.False(GalaxyConstraints.TryParse(typed, out var parsed, out var error));
+        Assert.Contains(expected, error);
+
+        // A refusal is not a half-parse: nothing that was read before the bad token leaks out.
+        Assert.True(parsed.IsUnconstrained);
+    }
+
+    [Fact]
+    public void Nothing_Typed_Is_A_Request_For_Nothing_Rather_Than_An_Error()
+    {
+        Assert.True(GalaxyConstraints.TryParse(null, out var none, out _));
+        Assert.True(none.IsUnconstrained);
+        Assert.True(GalaxyConstraints.TryParse("   ", out var blank, out _));
+        Assert.True(blank.IsUnconstrained);
+    }
+
+    [Fact]
+    public void A_Contradiction_Is_Stated_Without_The_Config_Loaders_Answer_To_It()
+    {
+        // A config has to widen and carry on, because a save is loading. A typed command has no
+        // such obligation and refuses instead, so the reason is available without the remedy.
+        var asked = new GalaxyConstraints(
+            WorldKind: WorldKindConstraint.Moon,
+            HomeMoons: PresenceConstraint.Required);
+
+        var contradiction = Assert.Single(asked.Contradictions());
+        Assert.DoesNotContain("Ignoring", contradiction);
+        Assert.Contains("belongs to its giant", contradiction);
+        Assert.Equal($"{contradiction} Ignoring HomeMoons.", Assert.Single(asked.Reconcile().Warnings));
+        Assert.Empty(GalaxyConstraints.Unconstrained.Contradictions());
+    }
+
+    [Fact]
     public void A_Default_Config_Asks_For_Nothing()
     {
         var config = new AstraExteraConfig();

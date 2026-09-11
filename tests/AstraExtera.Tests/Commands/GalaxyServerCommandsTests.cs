@@ -31,7 +31,7 @@ public sealed class GalaxyServerCommandsTests
         using var server = new TestServer();
         var previous = server.Sync.Sky!;
 
-        var result = server.Execute("astraextera reroll -1234");
+        var result = server.Execute("astraextera reroll -1234 confirm");
 
         Assert.Equal(EnumCommandStatus.Success, result.Status);
         Assert.Contains("7 -> -1234", result.StatusMessage);
@@ -71,11 +71,11 @@ public sealed class GalaxyServerCommandsTests
     public void Omitting_The_Seed_Chooses_A_Different_Cosmology_Each_Time()
     {
         using var server = new TestServer();
-        Assert.Equal(EnumCommandStatus.Success, server.Execute("astraextera reroll 42").Status);
+        Assert.Equal(EnumCommandStatus.Success, server.Execute("astraextera reroll 42 confirm").Status);
         var previousSeed = server.Sync.Placement!.WorldSeed;
         for (var i = 0; i < 2; i++)
         {
-            Assert.Equal(EnumCommandStatus.Success, server.Execute("astraextera reroll").Status);
+            Assert.Equal(EnumCommandStatus.Success, server.Execute("astraextera reroll confirm").Status);
             Assert.NotEqual(previousSeed, server.Sync.Placement!.WorldSeed);
             previousSeed = server.Sync.Placement.WorldSeed;
         }
@@ -91,7 +91,7 @@ public sealed class GalaxyServerCommandsTests
     {
         using var server = new TestServer();
 
-        var result = server.Execute("astraextera reroll " + seed.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        var result = server.Execute("astraextera reroll " + seed.ToString(System.Globalization.CultureInfo.InvariantCulture) + " confirm");
 
         Assert.Equal(EnumCommandStatus.Success, result.Status);
         Assert.Equal(seed, server.Sync.Placement!.WorldSeed);
@@ -106,13 +106,19 @@ public sealed class GalaxyServerCommandsTests
         var player = new Caller { Type = EnumCallerType.Player, CallerPrivileges = [Privilege.chat] };
 
         Assert.Equal(EnumCommandStatus.Success, server.Execute("astraextera galaxy", player).Status);
-        Assert.Equal(EnumCommandStatus.Error, server.Execute("astraextera reroll 42", player).Status);
+        Assert.Equal(EnumCommandStatus.Error, server.Execute("astraextera reroll 42 confirm", player).Status);
+
+        // Preview and find apply nothing, but both author skies on the server thread on demand, so
+        // they are held to the same privilege as the command they exist to make safe.
+        Assert.Equal(EnumCommandStatus.Error, server.Execute("astraextera preview 42", player).Status);
+        Assert.Equal(EnumCommandStatus.Error, server.Execute("astraextera find kind=moon", player).Status);
         Assert.Same(previous, server.Sync.Sky);
         Assert.Equal(0, server.Writes);
         Assert.Empty(server.Broadcasts);
 
         player.CallerPrivileges = [Privilege.chat, Privilege.controlserver];
-        Assert.Equal(EnumCommandStatus.Success, server.Execute("astraextera reroll 42", player).Status);
+        Assert.Equal(EnumCommandStatus.Success, server.Execute("astraextera preview 42", player).Status);
+        Assert.Equal(EnumCommandStatus.Success, server.Execute("astraextera reroll 42 confirm", player).Status);
         Assert.Equal(42, server.Sync.Placement!.WorldSeed);
     }
 
@@ -165,7 +171,7 @@ public sealed class GalaxyServerCommandsTests
             "constraints=kind=moon,star=M,rings=required",
             server.Execute("astraextera galaxy").StatusMessage);
 
-        Assert.Equal(EnumCommandStatus.Success, server.Execute("astraextera reroll -1234").Status);
+        Assert.Equal(EnumCommandStatus.Success, server.Execute("astraextera reroll -1234 confirm").Status);
 
         var rerolled = server.Sync.Placement!;
         Assert.Equal(GalaxyGenerator.Generate(-1234, expected), rerolled);
@@ -192,15 +198,174 @@ public sealed class GalaxyServerCommandsTests
     }
 
     [Fact]
+    public void Previewing_Changes_Nothing_And_Reroll_Then_Produces_The_Previewed_Sky()
+    {
+        using var server = new TestServer();
+        var previous = server.Sync.Sky;
+
+        var preview = server.Execute("astraextera preview -1234");
+
+        Assert.Equal(EnumCommandStatus.Success, preview.Status);
+        Assert.Same(previous, server.Sync.Sky);
+        Assert.Equal(0, server.Writes);
+        Assert.Empty(server.Broadcasts);
+        server.Join();
+        Assert.Equal(
+            GalaxyPlacementCodec.ToUtf8(previous!.Placement),
+            Assert.Single(server.JoinPackets).Payload);
+
+        // The point of a preview is that it is the sky you get, so the readout has to survive the
+        // reroll word for word.
+        var previewed = Describes(preview.StatusMessage);
+        Assert.Contains("Nothing was saved", preview.StatusMessage);
+        Assert.Equal(EnumCommandStatus.Success, server.Execute("astraextera reroll -1234 confirm").Status);
+        Assert.Equal(previewed, server.Execute("astraextera galaxy").StatusMessage);
+        Assert.Equal(-1234, server.Sync.Placement!.WorldSeed);
+    }
+
+    [Fact]
+    public void Previewing_Authors_Under_The_Server_Constraints_A_Reroll_Would_Use()
+    {
+        var config = new AstraExteraConfig { WorldKind = "moon", ParentGiantRings = "required" };
+        using var server = new TestServer(config: config);
+
+        var preview = server.Execute("astraextera preview -99");
+
+        Assert.Equal(EnumCommandStatus.Success, preview.Status);
+        Assert.Contains("constraints=kind=moon,rings=required", preview.StatusMessage);
+        Assert.Equal(0, server.Writes);
+
+        Assert.Equal(EnumCommandStatus.Success, server.Execute("astraextera reroll -99 confirm").Status);
+        Assert.Equal(Describes(preview.StatusMessage), server.Execute("astraextera galaxy").StatusMessage);
+    }
+
+    [Fact]
+    public void A_Found_Seed_Is_One_That_Reroll_Turns_Into_The_World_That_Was_Asked_For()
+    {
+        using var server = new TestServer();
+        var previous = server.Sync.Sky;
+
+        var found = server.Execute("astraextera find kind=moon rings=required");
+
+        Assert.Equal(EnumCommandStatus.Success, found.Status);
+        Assert.Same(previous, server.Sync.Sky);
+        Assert.Equal(0, server.Writes);
+        Assert.Empty(server.Broadcasts);
+
+        var seed = SeedIn(found.StatusMessage);
+        Assert.Equal(EnumCommandStatus.Success, server.Execute($"astraextera reroll {seed} confirm").Status);
+        var applied = server.Sync.Placement!;
+        Assert.Equal(ObserverWorldKind.TerrestrialMoon, applied.WorldKind);
+        Assert.NotNull(GalaxyConstraints.DominantGiant(applied.System)!.Ring);
+    }
+
+    [Fact]
+    public void Finding_Refuses_A_Contradiction_By_Name_Rather_Than_Searching_For_It()
+    {
+        using var server = new TestServer();
+
+        var result = server.Execute("astraextera find kind=moon moons=required");
+
+        Assert.Equal(EnumCommandStatus.Error, result.Status);
+        Assert.Contains("kind=moon,moons=required", result.StatusMessage);
+        Assert.Contains("belongs to its giant", result.StatusMessage);
+        Assert.DoesNotContain("seeds", result.StatusMessage);
+    }
+
+    [Fact]
+    public void Finding_Names_The_Constraint_A_Configured_Server_Can_Never_Produce()
+    {
+        // The server config wins, because the seed reported has to be one a reroll would honour.
+        // Asking this server for a moon world is therefore asking for something it cannot make.
+        using var server = new TestServer(config: new AstraExteraConfig { WorldKind = "planet" });
+
+        var result = server.Execute("astraextera find kind=moon");
+
+        Assert.Equal(EnumCommandStatus.Error, result.Status);
+        Assert.Contains($"{GalaxySkySearch.DefaultAttempts} seeds", result.StatusMessage);
+        Assert.Contains("Nothing drawn satisfied kind=moon", result.StatusMessage);
+        Assert.Contains("configured constraints 'kind=planet'", result.StatusMessage);
+        Assert.Equal(0, server.Writes);
+        Assert.Empty(server.Broadcasts);
+    }
+
+    [Theory]
+    [InlineData("astraextera find", "Constraints are kind=")]
+    [InlineData("astraextera find star=Q", "star 'Q' is not one of")]
+    [InlineData("astraextera find colour=blue", "'colour' is not a constraint")]
+    [InlineData("astraextera find moon", "not a key=value constraint")]
+    public void Finding_Rejects_What_It_Cannot_Read(string command, string expected)
+    {
+        using var server = new TestServer();
+
+        var result = server.Execute(command);
+
+        Assert.Equal(EnumCommandStatus.Error, result.Status);
+        Assert.Contains(expected, result.StatusMessage);
+        Assert.Equal(0, server.Writes);
+    }
+
+    [Fact]
+    public void An_Unconfirmed_Reroll_Says_What_It_Would_Cost_And_Does_Nothing()
+    {
+        using var server = new TestServer();
+        var previous = server.Sync.Sky;
+
+        var result = server.Execute("astraextera reroll -1234");
+
+        Assert.Equal(EnumCommandStatus.Error, result.Status);
+        Assert.Contains("cannot be migrated", result.StatusMessage);
+        Assert.Contains("/astraextera preview -1234", result.StatusMessage);
+        Assert.Contains("/astraextera reroll -1234 confirm", result.StatusMessage);
+        Assert.Same(previous, server.Sync.Sky);
+        Assert.Equal(0, server.Writes);
+        Assert.Empty(server.Broadcasts);
+
+        Assert.Equal(EnumCommandStatus.Error, server.Execute("astraextera reroll").Status);
+        Assert.Same(previous, server.Sync.Sky);
+        Assert.Empty(server.Broadcasts);
+    }
+
+    [Theory]
+    [InlineData("astraextera reroll -1234 yes")]
+    [InlineData("astraextera reroll confirm -1234")]
+    public void A_Misplaced_Confirmation_Is_A_Usage_Error_Rather_Than_A_Reroll(string command)
+    {
+        using var server = new TestServer();
+        var previous = server.Sync.Sky;
+
+        var result = server.Execute(command);
+
+        Assert.Equal(EnumCommandStatus.Error, result.Status);
+        Assert.Contains("Usage: /astraextera reroll", result.StatusMessage);
+        Assert.Same(previous, server.Sync.Sky);
+        Assert.Equal(0, server.Writes);
+        Assert.Empty(server.Broadcasts);
+    }
+
+    [Fact]
     public void Rerolling_Before_The_Save_Loads_Is_Rejected()
     {
         using var server = new TestServer(load: false);
 
-        Assert.Equal(EnumCommandStatus.Error, server.Execute("astraextera reroll").Status);
+        Assert.Equal(EnumCommandStatus.Error, server.Execute("astraextera reroll confirm").Status);
         Assert.Throws<InvalidOperationException>(() => server.Sync.Reroll(42));
         Assert.Null(server.Sync.Sky);
         Assert.Empty(server.Stored);
         Assert.Empty(server.Broadcasts);
+    }
+
+    /// <summary>The one line of a multi-line reply that is the galaxy readout itself.</summary>
+    private static string Describes(string message)
+        => Assert.Single(
+            message.Split('\n'),
+            static line => line.StartsWith("AstraExtera galaxy:", StringComparison.Ordinal));
+
+    private static long SeedIn(string message)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(message, @"at seed (-?\d+)");
+        Assert.True(match.Success, message);
+        return long.Parse(match.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
     }
 
     private sealed class TestServer : IDisposable
@@ -293,7 +458,7 @@ public sealed class GalaxyServerCommandsTests
             commands = new ChatCommandApi(api);
             Sync = new GalaxyServerSync(api, config ?? new AstraExteraConfig());
             Sync.Register();
-            new GalaxyServerCommands(() => Sync.Sky, Sync.Reroll).Register(api);
+            new GalaxyServerCommands(() => Sync.Sky, Sync.Reroll, () => Sync.Constraints).Register(api);
             if (load) events["SaveGameLoaded"]!.DynamicInvoke();
             LoadWrites = Writes;
             Writes = 0;
