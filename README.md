@@ -52,13 +52,19 @@ simulation. AstraTerra's own Earth Milky Way is a separate renderer; see the
 
 - `/astraextera galaxy` reports the current cosmology and local system. It requires the normal chat
   privilege.
-- `/astraextera reroll` generates a new random cosmology.
-- `/astraextera reroll <seed>` uses a signed 64-bit seed. In the server console, omit the leading
-  slash. Rerolling requires `controlserver`.
+- `/astraextera preview [seed]` authors a candidate sky and prints the same readout without saving
+  it or sending it to anyone.
+- `/astraextera find kind=moon star=K rings=required` draws seeds until one matches and reports the
+  seed, applying nothing.
+- `/astraextera reroll [seed] confirm` replaces the saved cosmology. The seed is a signed 64-bit
+  integer; omit it for a random one.
+
+The three admin commands require `controlserver`. In the server console, omit the leading slash.
 
 A reroll replaces the saved galaxy placement, star field, and local sky, then broadcasts them. It
 does not change the terrain seed. Existing constellation lines and star names remain stored, but
-their numeric star IDs now select stars in the new catalog, so old drawings change shape.
+their numeric star IDs now select stars in the new catalog, so old drawings change shape. That is
+why `confirm` is required, and why `preview` and `find` exist: look at a sky, then decide.
 
 ## Developer documentation
 

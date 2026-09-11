@@ -295,25 +295,73 @@ Four keys are present in AstraTerra's generated file but have no effect in its c
 session; it does not disable AstraExtera's glow. `.stars render` choices are diagnostic state and
 return to their defaults when the client restarts.
 
-## Rerolling a save's sky
+## Choosing a save's sky
 
-An administrator with `controlserver` can run:
+An administrator with `controlserver` has three commands. Two of them look; only the third changes
+anything.
+
+### Look at a candidate
 
 ```text
-/astraextera reroll
-/astraextera reroll 42
+/astraextera preview
+/astraextera preview 42
 ```
 
-The first form chooses a random signed 64-bit seed. The second is repeatable. The server immediately
-stores and broadcasts the replacement galaxy, star field, and local sky. It preserves Vintage
-Story's terrain and world-generation seed.
+This authors a sky from the seed and prints the same readout `/astraextera galaxy` gives, then
+throws it away. Nothing is stored, nothing is broadcast, and no player's sky changes. It authors
+under the same `ModConfig/astraextera.json` constraints a reroll would use, so previewing a seed and
+then rerolling that seed gives exactly the sky that was previewed. Omitting the seed previews a
+random one.
 
-Use `/astraextera galaxy` before and after a reroll to record the seed. Supplying the current seed is
-a successful no-op. Connected clients update without rejoining, although the galaxy panel must be
+### Search for one
+
+```text
+/astraextera find kind=moon star=K rings=required
+```
+
+This draws seeds until one produces the world described, then reports the seed without applying it.
+The vocabulary is the config's, written the way `/astraextera galaxy` prints it, so the
+`constraints=` tail of a readout can be pasted straight back in:
+
+| Key | Values |
+| --- | --- |
+| `kind` | `any`, `planet`, `moon` |
+| `star` | `any`, `M`, `K`, `G`, `F` |
+| `galaxy` | `any`, `spiral`, `elliptical` |
+| `rings` | `any`, `required`, `none` |
+| `moons` | `any`, `required`, `none` |
+
+Keys may be separated by spaces or commas and are read case-insensitively. Seeds are drawn under the
+server's own configured constraints, because the seed reported has to be one a reroll would honour;
+if the config and the search disagree, the config wins and the reply says so.
+
+The search gives up after 512 seeds. A request that nothing could satisfy is named: asking a server
+configured for `WorldKind: planet` to find `kind=moon` reports that nothing drawn satisfied
+`kind=moon`. A request whose parts each turned up but never together is reported as rare rather than
+impossible. Two combinations are refused outright without searching, because no sky can satisfy
+them: `kind=moon moons=required`, and `kind=planet star=M`.
+
+### Apply one
+
+```text
+/astraextera reroll 42 confirm
+/astraextera reroll confirm
+```
+
+Without `confirm` the command changes nothing and prints what it would cost. With it, the server
+stores and broadcasts the replacement galaxy, star field, and local sky. It preserves Vintage
+Story's terrain and world-generation seed. Supplying the seed the save already has is a successful
+no-op, confirmed or not.
+
+The first form is repeatable; the second chooses a random signed 64-bit seed, so there is nothing to
+preview beforehand. Connected clients update without rejoining, although the galaxy panel must be
 reopened to inspect the new result.
 
-Rerolling is destructive to the meaning of existing star IDs. Back up the save or accept that old
-constellation shapes and star names will point elsewhere.
+Rerolling is destructive to the meaning of existing star IDs, and they cannot be migrated. A star ID
+is a position in a catalog sorted by brightness over a freshly sampled sky: star 12 of the old sky
+and star 12 of the new one are unrelated stars in unrelated places, and the new sky does not contain
+the old sky's stars at all. There is no correspondence to carry drawings along. Back up the save, or
+accept that old constellation shapes and star names will point elsewhere.
 
 ## When the sky looks wrong
 
