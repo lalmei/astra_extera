@@ -29,6 +29,7 @@ public sealed class BootstrapSmokeTests
 
         Assert.Contains("bump-version:", makefile);
         Assert.Contains("bump-patch-version:", makefile);
+        Assert.Contains("BUMP ?= bump-my-version", makefile);
         Assert.Matches(new Regex(@"make bump-version\s+VERSION=0\.1\.2"), makefile);
         Assert.Matches(new Regex(@"make bump-patch-version\s+Increment patch version"), makefile);
     }
